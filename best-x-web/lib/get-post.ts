@@ -1,7 +1,7 @@
 import { PlaywrightClient } from 'better-playwright-mcp';
 import * as cheerio from 'cheerio';
 import * as fs from 'fs';
-import type { Tweet, TweetResult } from './types/tweet';
+import type { Tweet, TweetResult } from '@/types/tweet';
 
 async function getXPost(url?: string, options?: { scrollTimes?: number }): Promise<TweetResult> {
   try {
@@ -24,58 +24,20 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     );
     await client.waitForTimeout(pageId, 3000);
     
-    // 用于去重的集合和保存所有articles的数组
-    const seenTweets = new Set<string>();
-    const allArticlesHtml: string[] = [];
-    
-    // 初次加载，保存主推文和初始内容
-    console.log('📸 保存初始内容（包括主推文）...');
-    let htmlFile = await client.pageToHtmlFile(pageId, true);
-    let htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
-    let $ = cheerio.load(htmlContent);
-    
-    $('article').each((i, el) => {
-      const $article = $(el);
-      // 提取状态链接作为唯一标识
-      const statusLinks = $article.find('a[href*="/status/"]').map((j, link) => $(link).attr('href')).get();
-      const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
-      
-      if (mainStatusLink && !seenTweets.has(mainStatusLink)) {
-        seenTweets.add(mainStatusLink);
-        allArticlesHtml.push($.html(el));
-      } else if (!mainStatusLink) {
-        // 没有status链接的article也保存（可能是特殊情况）
-        allArticlesHtml.push($.html(el));
-      }
-    });
-    
-    // 滚动加载更多内容，每次都收集新的articles
+    // 滚动加载更多内容
     const scrollTimes = options?.scrollTimes || 3;
     console.log(`🔄 滚动 ${scrollTimes} 次加载更多内容...`);
     for (let i = 0; i < scrollTimes; i++) {
       await client.scrollToBottom(pageId);
       await client.waitForTimeout(pageId, 2000);
-      
-      // 每次滚动后都抓取当前的articles
-      htmlFile = await client.pageToHtmlFile(pageId, true);
-      htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
-      $ = cheerio.load(htmlContent);
-      
-      $('article').each((j, el) => {
-        const $article = $(el);
-        const statusLinks = $article.find('a[href*="/status/"]').map((k, link) => $(link).attr('href')).get();
-        const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
-        
-        if (mainStatusLink && !seenTweets.has(mainStatusLink)) {
-          seenTweets.add(mainStatusLink);
-          allArticlesHtml.push($.html(el));
-        }
-      });
     }
     
-    // 合并所有收集到的articles
-    const mergedHtml = `<div>${allArticlesHtml.join('\n')}</div>`;
-    $ = cheerio.load(mergedHtml);
+    // 保存精简版HTML
+    const htmlFile = await client.pageToHtmlFile(pageId, true);
+    
+    // 读取并解析HTML
+    const htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
+    const $ = cheerio.load(htmlContent);
     
     // 提取所有article标签
     const articles = $('article');
@@ -178,9 +140,10 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     
     // 保存article HTML到文件
     let articlesFile = '';
-    if (allArticlesHtml.length > 0) {
+    if (articles.length > 0) {
       articlesFile = `/tmp/articles-${Date.now()}.html`;
-      fs.writeFileSync(articlesFile, allArticlesHtml.join('\n\n'), 'utf-8');
+      const articlesHtml = articles.map((i, el) => $.html(el)).get().join('\n\n');
+      fs.writeFileSync(articlesFile, articlesHtml, 'utf-8');
     }
     
     // 关闭页面
