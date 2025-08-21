@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import * as fs from 'fs';
 import type { Tweet, TweetResult } from './types/tweet';
 
-async function getXPost(url?: string): Promise<TweetResult> {
+async function getXPost(url?: string, options?: { scrollTimes?: number }): Promise<TweetResult> {
   try {
     // 获取推文URL
     const tweetUrl = url || process.argv[2];
@@ -23,6 +23,14 @@ async function getXPost(url?: string): Promise<TweetResult> {
       3000
     );
     await client.waitForTimeout(pageId, 3000);
+    
+    // 滚动加载更多内容
+    const scrollTimes = options?.scrollTimes || 3;
+    console.log(`🔄 滚动 ${scrollTimes} 次加载更多内容...`);
+    for (let i = 0; i < scrollTimes; i++) {
+      await client.scrollToBottom(pageId);
+      await client.waitForTimeout(pageId, 2000);
+    }
     
     // 保存精简版HTML
     const htmlFile = await client.pageToHtmlFile(pageId, true);
@@ -89,7 +97,7 @@ async function getXPost(url?: string): Promise<TweetResult> {
                     || $article.find('button[aria-label*="播放"]').length > 0;
       
       // 提取视频信息
-      let videoInfo = null;
+      let videoInfo: { thumbnail: string } | null = null;
       if (hasVideo) {
         const thumbnail = $article.find('img[src*="amplify_video_thumb"]').attr('src');
         
@@ -158,7 +166,8 @@ async function getXPost(url?: string): Promise<TweetResult> {
 
 // 如果直接运行脚本
 if (require.main === module || process.argv[1]?.includes('get-post')) {
-  getXPost()
+  const scrollTimes = parseInt(process.argv[3]) || 3;
+  getXPost(process.argv[2], { scrollTimes })
     .then(result => {
       console.log('\n✨ 完成！');
       console.log(`📄 HTML: ${result.htmlFile}`);
