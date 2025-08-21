@@ -8,7 +8,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "better-playwright-mcp": "^0.2.6",
+    "better-sqlite3": "^12.2.0",
     "cheerio": "^1.1.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
@@ -22,6 +24,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.20.4",
     "typescript": "^5"
   }
 }
