@@ -1,7 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Tweet } from '@/types/tweet';
+
+interface ExtractionRecord {
+  id: number;
+  url: string;
+  author_name: string;
+  author_handle: string;
+  tweet_count: number;
+  main_tweet_text: string;
+  extract_time: string;
+}
 
 export default function Home() {
   const [url, setUrl] = useState('');
@@ -9,6 +19,9 @@ export default function Home() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [history, setHistory] = useState<ExtractionRecord[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const fetchTweets = async () => {
     if (!url) {
@@ -34,12 +47,53 @@ export default function Home() {
       }
 
       setTweets(data.tweets || []);
+      setSelectedHistoryId(null); // 清除历史选中状态
+      fetchHistory(); // 刷新历史列表
     } catch (err: any) {
       setError(err.message || '获取推文失败');
     } finally {
       setLoading(false);
     }
   };
+
+  // 获取历史记录
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/extractions?limit=20');
+      const data = await res.json();
+      setHistory(data.extractions || []);
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  };
+
+  // 加载历史记录的推文
+  const loadHistoryItem = async (id: number) => {
+    setLoadingHistory(true);
+    setError('');
+    setSelectedHistoryId(id);
+    
+    try {
+      const res = await fetch(`http://localhost:3001/api/extractions/${id}`);
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error('加载历史记录失败');
+      }
+      
+      setTweets(data.tweets || []);
+      setUrl(data.url || '');
+    } catch (err: any) {
+      setError(err.message || '加载历史记录失败');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // 组件加载时获取历史记录
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   // Format numbers like Twitter (1.2K, 3.5M, etc)
   const formatNumber = (num: string) => {
@@ -53,7 +107,7 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
       <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-20">
-        <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="px-4 py-6">
           <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
             <svg className="w-7 h-7 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -63,8 +117,50 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Input Section */}
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      {/* Main Layout with Sidebar */}
+      <div className="flex h-[calc(100vh-73px)]">
+        {/* Sidebar - History */}
+        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+          <div className="p-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">提取历史</h2>
+            <p className="text-sm text-gray-500 mt-1">点击查看历史记录</p>
+          </div>
+          
+          <div className="divide-y divide-gray-100">
+            {history.length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                暂无历史记录
+              </div>
+            ) : (
+              history.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => loadHistoryItem(item.id)}
+                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                    selectedHistoryId === item.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium text-gray-900">{item.author_name}</span>
+                    <span className="text-gray-500 text-sm">{item.author_handle}</span>
+                  </div>
+                  <div className="text-sm text-gray-600 line-clamp-2 mb-2">
+                    {item.main_tweet_text}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>{item.tweet_count} 条推文</span>
+                    <span>{new Date(item.extract_time).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Input Section */}
+          <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
           <div className="space-y-5">
             <div>
@@ -100,9 +196,9 @@ export default function Home() {
 
             <button
               onClick={fetchTweets}
-              disabled={loading}
+              disabled={loading || loadingHistory}
               className={`w-full py-3 rounded-xl font-semibold transition-all transform shadow-lg ${
-                loading 
+                loading || loadingHistory
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
                   : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:scale-[1.02] active:scale-[0.98] hover:shadow-xl'
               }`}
@@ -131,12 +227,19 @@ export default function Home() {
       </div>
 
       {/* Results Section */}
-      {tweets.length > 0 && (
+      {(tweets.length > 0 || loadingHistory) && (
         <div className="max-w-2xl mx-auto px-4 pb-8">
-          <div className="bg-white rounded-t-2xl px-4 py-4 border-b border-gray-200 sticky top-[73px] z-10 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900">
-              {tweets.length} Posts Extracted
-            </h2>
+          <div className="bg-white rounded-t-2xl px-4 py-4 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">
+                {loadingHistory ? '加载中...' : `${tweets.length} Posts ${selectedHistoryId ? '(历史记录)' : ''}`}
+              </h2>
+              {selectedHistoryId && (
+                <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                  历史数据
+                </span>
+              )}
+            </div>
           </div>
           
           <div className="bg-white rounded-b-2xl shadow-xl divide-y divide-gray-100">
@@ -276,6 +379,8 @@ export default function Home() {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </main>
   );
 }
