@@ -31,8 +31,14 @@ app.post('/api/fetch-tweet', async (req: Request<{}, {}, FetchTweetRequest>, res
     const extractionId = extractionsDB.saveExtraction(result, scrollTimes, 0);
     console.log(`💾 数据已保存，ID: ${extractionId}`);
     
-    // 返回结果（包含数据库ID）
-    res.json({ ...result, extractionId });
+    // 从数据库读取刚保存的数据
+    const savedData = extractionsDB.getExtraction(extractionId);
+    if (!savedData) {
+      throw new Error('保存后无法读取数据');
+    }
+    
+    // 返回数据库中的数据（包含数据库ID）
+    res.json({ ...savedData, extractionId });
   } catch (error: any) {
     console.error('Error:', error);
     res.status(500).json({ error: error.message || '获取推文失败' });

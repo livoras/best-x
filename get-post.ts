@@ -87,6 +87,9 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     let filteredCount = 0;
     
     for (let i = 0; i < scrollTimes; i++) {
+      // 记录本次滚动前的推文数量
+      const tweetsCountBefore = seenTweets.size;
+      
       await client.scrollToBottom(pageId);
       await client.waitForTimeout(pageId, 2000);
       
@@ -138,6 +141,17 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
           console.log(`    ⏭️  跳过重复: ${mainStatusLink}`);
         }
       });
+      
+      // 检查本次滚动是否有新推文
+      const tweetsCountAfter = seenTweets.size;
+      const newTweetsCount = tweetsCountAfter - tweetsCountBefore;
+      
+      console.log(`    📊 本次新增: ${newTweetsCount} 条推文`);
+      
+      if (newTweetsCount === 0) {
+        console.log(`  🛑 没有新推文，已到达底部，停止滚动`);
+        break;
+      }
     }
     
     // 输出统计信息
