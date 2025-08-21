@@ -1,7 +1,12 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import { getXPost } from '../get-post';
-import { extractionsDB } from './lib/db';
+import { DB } from './lib/DB';
+import { Migration } from './lib/Migration';
+import { migrations } from './lib/migrations';
+import { ExtractionsModel } from './lib/models/ExtractionsModel';
 
 console.log('Starting server...');
 const app = express();
@@ -28,11 +33,11 @@ app.post('/api/fetch-tweet', async (req: Request<{}, {}, FetchTweetRequest>, res
     const result = await getXPost(url, { scrollTimes });
     
     // 保存到数据库
-    const extractionId = extractionsDB.saveExtraction(result, scrollTimes, 0);
+    const extractionId = extractionsModel.saveExtraction(result, scrollTimes, 0);
     console.log(`💾 数据已保存，ID: ${extractionId}`);
     
     // 从数据库读取刚保存的数据
-    const savedData = extractionsDB.getExtraction(extractionId);
+    const savedData = extractionsModel.getExtraction(extractionId);
     if (!savedData) {
       throw new Error('保存后无法读取数据');
     }
@@ -51,8 +56,8 @@ app.get('/api/extractions', (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
     
-    const extractions = extractionsDB.getExtractions(limit, offset);
-    const stats = extractionsDB.getStats();
+    const extractions = extractionsModel.getExtractions(limit, offset);
+    const stats = extractionsModel.getStats();
     
     res.json({ extractions, stats });
   } catch (error: any) {
@@ -65,7 +70,7 @@ app.get('/api/extractions', (req: Request, res: Response) => {
 app.get('/api/extractions/:id', (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const extraction = extractionsDB.getExtraction(id);
+    const extraction = extractionsModel.getExtraction(id);
     
     if (!extraction) {
       return res.status(404).json({ error: '记录不存在' });
@@ -82,7 +87,7 @@ app.get('/api/extractions/:id', (req: Request, res: Response) => {
 app.delete('/api/extractions/:id', (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const success = extractionsDB.deleteExtraction(id);
+    const success = extractionsModel.deleteExtraction(id);
     
     if (!success) {
       return res.status(404).json({ error: '记录不存在' });
@@ -129,7 +134,7 @@ app.post('/api/test-save', (req: Request, res: Response) => {
       count: 1
     };
     
-    const id = extractionsDB.saveExtraction(mockResult, 1, 0);
+    const id = extractionsModel.saveExtraction(mockResult, 1, 0);
     res.json({ success: true, id, message: '测试数据已保存' });
   } catch (error: any) {
     console.error('Error:', error);
@@ -149,14 +154,14 @@ app.get('/api/search', (req: Request, res: Response) => {
     let results;
     switch (type) {
       case 'author':
-        results = extractionsDB.searchByAuthor(query as string);
+        results = extractionsModel.searchByAuthor(query as string);
         break;
       case 'content':
-        results = extractionsDB.searchByContent(query as string);
+        results = extractionsModel.searchByContent(query as string);
         break;
       case 'url':
       default:
-        results = extractionsDB.searchByUrl(query as string);
+        results = extractionsModel.searchByUrl(query as string);
         break;
     }
     
@@ -167,13 +172,48 @@ app.get('/api/search', (req: Request, res: Response) => {
   }
 });
 
-const PORT = 3001;
-app.listen(PORT, () => {
-  console.log(`✅ 服务器运行在 http://localhost:${PORT}`);
-  console.log('📝 API 端点:');
-  console.log('  - POST   /api/fetch-tweet     提取推文');
-  console.log('  - GET    /api/extractions      获取历史');
-  console.log('  - GET    /api/extractions/:id  获取详情');
-  console.log('  - DELETE /api/extractions/:id  删除记录');
-  console.log('  - GET    /api/search           搜索功能');
-});
+// 数据库路径
+const DB_PATH = join(process.cwd(), 'data', 'tweets.db');
+
+// Model 实例（像 confow 那样）
+let extractionsModel: ExtractionsModel;
+
+// 启动服务器
+async function startServer() {
+  try {
+    // 确保数据目录存在
+    const dataDir = join(process.cwd(), 'data');
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
+    }
+
+    // 初始化数据库连接
+    const db = DB.getInstance(DB_PATH);
+    
+    // 运行迁移
+    const migration = new Migration(db);
+    await migration.apply(migrations);
+    
+    // 初始化 Model
+    ExtractionsModel.setDB(db);
+    extractionsModel = ExtractionsModel.getInstance();
+    
+    console.log('✨ 数据库初始化完成');
+    
+    const PORT = 3001;
+    app.listen(PORT, () => {
+      console.log(`✅ 服务器运行在 http://localhost:${PORT}`);
+      console.log('📝 API 端点:');
+      console.log('  - POST   /api/fetch-tweet     提取推文');
+      console.log('  - GET    /api/extractions      获取历史');
+      console.log('  - GET    /api/extractions/:id  获取详情');
+      console.log('  - DELETE /api/extractions/:id  删除记录');
+      console.log('  - GET    /api/search           搜索功能');
+    });
+  } catch (error) {
+    console.error('❌ 服务器启动失败:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
