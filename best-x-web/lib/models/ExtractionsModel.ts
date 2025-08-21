@@ -7,6 +7,7 @@ export interface ExtractionRecord {
   url: string;
   author_name: string;
   author_handle: string;
+  author_avatar?: string;
   tweet_count: number;
   scroll_times: number;
   filtered_count: number;
@@ -71,16 +72,17 @@ export class ExtractionsModel {
 
     const sql = `
       INSERT INTO extractions (
-        url, author_name, author_handle,
+        url, author_name, author_handle, author_avatar,
         tweet_count, scroll_times, filtered_count,
         main_tweet_text, post_time, post_date, data
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     ExtractionsModel.db.execute(sql, [
       result.url,
       mainTweet.author.name,
       mainTweet.author.handle,
+      mainTweet.author.avatar,
       result.count,
       scrollTimes,
       filteredCount,
@@ -100,7 +102,7 @@ export class ExtractionsModel {
   // 获取提取记录列表
   public getExtractions(limit: number = 20, offset: number = 0): ExtractionRecord[] {
     const sql = `
-      SELECT id, url, author_name, author_handle,
+      SELECT id, url, author_name, author_handle, author_avatar,
              tweet_count, scroll_times, filtered_count,
              main_tweet_text, post_time, post_date, extract_time
       FROM extractions

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import type { Tweet } from '@/types/tweet';
 
 interface ExtractionRecord {
@@ -8,6 +9,7 @@ interface ExtractionRecord {
   url: string;
   author_name: string;
   author_handle: string;
+  author_avatar?: string;
   tweet_count: number;
   main_tweet_text: string;
   extract_time: string;
@@ -140,16 +142,41 @@ export default function Home() {
                     selectedHistoryId === item.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-gray-900">{item.author_name}</span>
-                    <span className="text-gray-500 text-sm">{item.author_handle}</span>
-                  </div>
-                  <div className="text-sm text-gray-600 line-clamp-2 mb-2">
-                    {item.main_tweet_text}
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>{item.tweet_count} 条推文</span>
-                    <span>{new Date(item.extract_time).toLocaleDateString()}</span>
+                  <div className="flex gap-3">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      {item.author_avatar ? (
+                        <Image
+                          src={item.author_avatar}
+                          alt={item.author_name}
+                          width={40}
+                          height={40}
+                          className="rounded-full"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                          <span className="text-gray-500 text-sm font-medium">
+                            {item.author_name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900 truncate">{item.author_name}</span>
+                        <span className="text-gray-500 text-sm truncate">{item.author_handle}</span>
+                      </div>
+                      <div className="text-sm text-gray-600 line-clamp-2 mb-2">
+                        {item.main_tweet_text}
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-400">
+                        <span>{item.tweet_count} 条推文</span>
+                        <span>{new Date(item.extract_time).toLocaleDateString()}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))

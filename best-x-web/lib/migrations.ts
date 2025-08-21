@@ -13,6 +13,7 @@ export const migrations: MigrationScript[] = [
         -- 主推文作者信息
         author_name TEXT,
         author_handle TEXT,
+        author_avatar TEXT,
         
         -- 提取统计
         tweet_count INTEGER,
