@@ -12,6 +12,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "better-playwright-mcp": "^0.2.6",
     "cheerio": "^1.1.2",
     "pretty": "^2.0.0"
   }
