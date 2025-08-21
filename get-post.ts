@@ -28,6 +28,10 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     const seenTweets = new Set<string>();
     const allArticlesHtml: string[] = [];
     
+    // 记录推荐内容的handles，用于持久过滤
+    const recommendedHandles = new Set<string>();
+    let foundDiscoverMore = false;
+    
     // 初次加载，保存主推文和初始内容
     console.log('📸 保存初始内容（包括主推文）...');
     let htmlFile = await client.pageToHtmlFile(pageId, true);
@@ -36,6 +40,30 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     
     $('article').each((i, el) => {
       const $article = $(el);
+      
+      // 提取handle作为标识
+      const handle = $article.find('a[href^="/"]')
+        .filter((j, link) => $(link).text().startsWith('@'))
+        .first().text();
+      
+      // 检查是否到达"发现更多"区域
+      if (!foundDiscoverMore && $article.prevAll('div:has(h2:contains("发现更多"))').length > 0) {
+        foundDiscoverMore = true;
+      }
+      
+      // 如果已经发现"发现更多"，记录后续的所有handle为推荐内容
+      if (foundDiscoverMore && handle) {
+        recommendedHandles.add(handle);
+        console.log(`  ⚠️  跳过推荐内容: ${handle}`);
+        return;
+      }
+      
+      // 检查是否是之前记录的推荐内容
+      if (recommendedHandles.has(handle)) {
+        console.log(`  ⚠️  跳过推荐内容（已记录）: ${handle}`);
+        return;
+      }
+      
       // 提取状态链接作为唯一标识
       const statusLinks = $article.find('a[href*="/status/"]').map((j, link) => $(link).attr('href')).get();
       const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
@@ -43,15 +71,21 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       if (mainStatusLink && !seenTweets.has(mainStatusLink)) {
         seenTweets.add(mainStatusLink);
         allArticlesHtml.push($.html(el));
+        console.log(`  ✅ 收集推文: ${mainStatusLink}`);
       } else if (!mainStatusLink) {
         // 没有status链接的article也保存（可能是特殊情况）
         allArticlesHtml.push($.html(el));
+        console.log(`  ✅ 收集特殊推文（无status链接）`);
+      } else {
+        console.log(`  ⏭️  跳过重复: ${mainStatusLink}`);
       }
     });
     
     // 滚动加载更多内容，每次都收集新的articles
     const scrollTimes = options?.scrollTimes || 3;
     console.log(`🔄 滚动 ${scrollTimes} 次加载更多内容...`);
+    let filteredCount = 0;
+    
     for (let i = 0; i < scrollTimes; i++) {
       await client.scrollToBottom(pageId);
       await client.waitForTimeout(pageId, 2000);
@@ -61,17 +95,55 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
       $ = cheerio.load(htmlContent);
       
+      console.log(`  📜 第 ${i + 1} 次滚动后...`);
       $('article').each((j, el) => {
         const $article = $(el);
+        
+        // 提取handle作为标识
+        const handle = $article.find('a[href^="/"]')
+          .filter((k, link) => $(link).text().startsWith('@'))
+          .first().text();
+        
+        // 检查是否到达"发现更多"区域
+        if (!foundDiscoverMore && $article.prevAll('div:has(h2:contains("发现更多"))').length > 0) {
+          foundDiscoverMore = true;
+        }
+        
+        // 如果已经发现"发现更多"，记录后续的所有handle为推荐内容
+        if (foundDiscoverMore && handle) {
+          if (!recommendedHandles.has(handle)) {
+            recommendedHandles.add(handle);
+            const filteredText = $article.find('span').toArray().map(span => $(span).text()).find(text => text.length > 30)?.substring(0, 50) || '';
+            console.log(`    ⚠️  跳过推荐内容: ${handle} - ${filteredText}...`);
+            filteredCount++;
+          }
+          return;
+        }
+        
+        // 检查是否是之前记录的推荐内容
+        if (recommendedHandles.has(handle)) {
+          console.log(`    ⚠️  跳过推荐内容（已记录）: ${handle}`);
+          filteredCount++;
+          return;
+        }
+        
         const statusLinks = $article.find('a[href*="/status/"]').map((k, link) => $(link).attr('href')).get();
         const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
         
         if (mainStatusLink && !seenTweets.has(mainStatusLink)) {
           seenTweets.add(mainStatusLink);
           allArticlesHtml.push($.html(el));
+          console.log(`    ✅ 收集推文: ${mainStatusLink}`);
+        } else if (mainStatusLink) {
+          console.log(`    ⏭️  跳过重复: ${mainStatusLink}`);
         }
       });
     }
+    
+    // 输出统计信息
+    console.log(`\n📊 收集统计:`)
+    console.log(`  - 收集了 ${allArticlesHtml.length} 条真实评论`);
+    console.log(`  - 过滤了 ${filteredCount} 条推荐内容`);
     
     // 合并所有收集到的articles
     const mergedHtml = `<div>${allArticlesHtml.join('\n')}</div>`;
