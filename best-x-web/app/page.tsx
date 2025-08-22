@@ -295,16 +295,9 @@ export default function Home() {
       (tweets.length > 0 || loadingHistory) && (
         <div className="p-4">
           <div className="bg-white rounded-t-lg px-4 py-3 border-b border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">
-                {loadingHistory ? '加载中...' : `${tweets.length} Posts ${selectedHistoryId ? '(历史记录)' : ''}`}
-              </h2>
-              {selectedHistoryId && (
-                <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                  历史数据
-                </span>
-              )}
-            </div>
+            <h2 className="text-base font-semibold text-gray-900">
+              {loadingHistory ? '加载中...' : `${tweets.length} Posts`}
+            </h2>
           </div>
           
           <div className="bg-white rounded-b-lg shadow-sm divide-y divide-gray-100">
