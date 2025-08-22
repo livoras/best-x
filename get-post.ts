@@ -34,7 +34,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     
     // 初次加载，保存主推文和初始内容
     console.log('📸 保存初始内容（包括主推文）...');
-    let htmlFile = await client.pageToHtmlFile(pageId, true);
+    let htmlFile = await client.pageToHtmlFile(pageId, false);
     let htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
     let $ = cheerio.load(htmlContent);
     
@@ -94,7 +94,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       await client.waitForTimeout(pageId, 2000);
       
       // 每次滚动后都抓取当前的articles
-      htmlFile = await client.pageToHtmlFile(pageId, true);
+      htmlFile = await client.pageToHtmlFile(pageId, false);
       htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
       $ = cheerio.load(htmlContent);
       
@@ -174,10 +174,11 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       const $links = $article.find('a[href^="/"]');
       const $imgs = $article.find('img');
       
-      // 提取文本内容
-      const textSpans = $article.find('span').toArray()
-        .map(span => $(span).text())
-        .filter(text => text.length > 30);
+      // 提取文本内容 - 使用 data-testid="tweetText" 选择器
+      const tweetTextDiv = $article.find('[data-testid="tweetText"]');
+      const textContent = tweetTextDiv.length > 0 
+        ? tweetTextDiv.text().trim()
+        : '';
       
       // 提取互动数据
       const $statsGroup = $article.find('div[role="group"]');
@@ -243,7 +244,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
           avatar: $imgs.first().attr('src') || ''
         },
         content: {
-          text: textSpans[0] || '',
+          text: textContent,
           hasMore: $article.find('button:contains("显示更多")').length > 0
         },
         media: {
@@ -288,7 +289,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
 }
 
 // 如果直接运行脚本
-if (require.main === module || process.argv[1]?.includes('get-post')) {
+if (process.argv[2]) {
   const scrollTimes = parseInt(process.argv[3]) || 3;
   getXPost(process.argv[2], { scrollTimes })
     .then(result => {
