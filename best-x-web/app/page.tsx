@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import type { Tweet } from '@/types/tweet';
 
@@ -15,6 +15,33 @@ interface ExtractionRecord {
   extract_time: string;
 }
 
+// 任务队列状态接口
+interface QueueStatus {
+  summary: {
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+  };
+  currentTask: {
+    url: string;
+    progress: number;
+    message: string;
+    elapsed: number;
+  } | null;
+  queue: Array<{
+    position: number;
+    url: string;
+    estimatedTime: string;
+  }>;
+  recent: Array<{
+    url: string;
+    status: 'completed' | 'failed';
+    completedAt: string;
+    error?: string;
+  }>;
+}
+
 export default function Home() {
   const [url, setUrl] = useState('');
   const [scrollTimes, setScrollTimes] = useState(3);
@@ -24,6 +51,14 @@ export default function Home() {
   const [history, setHistory] = useState<ExtractionRecord[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // 队列状态
+  const [queueStatus, setQueueStatus] = useState<QueueStatus>({
+    summary: { pending: 0, processing: 0, completed: 0, failed: 0 },
+    currentTask: null,
+    queue: [],
+    recent: []
+  });
 
   const fetchTweets = async () => {
     if (!url) {
@@ -33,9 +68,9 @@ export default function Home() {
 
     setLoading(true);
     setError('');
-    setTweets([]);
 
     try {
+      // 提交任务到队列
       const res = await fetch('http://localhost:3001/api/fetch-tweet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -45,15 +80,19 @@ export default function Home() {
       const data = await res.json();
       
       if (!res.ok) {
-        throw new Error(data.error || '获取失败');
+        throw new Error(data.error || '添加任务失败');
       }
 
-      setTweets(data.tweets || []);
-      setSelectedHistoryId(null); // 清除历史选中状态
-      fetchHistory(); // 刷新历史列表
+      // 任务已入队
+      console.log(`任务已入队: ${data.taskId}`);
+      setUrl(''); // 清空输入框
+      setLoading(false); // 立即解除loading状态，允许继续提交
+      
+      // 显示成功消息（可选）
+      // 队列状态会通过右侧栏的轮询自动更新显示
+      
     } catch (err: any) {
-      setError(err.message || '获取推文失败');
-    } finally {
+      setError(err.message || '提交任务失败');
       setLoading(false);
     }
   };
@@ -63,9 +102,12 @@ export default function Home() {
     try {
       const res = await fetch('http://localhost:3001/api/extractions?limit=20');
       const data = await res.json();
-      setHistory(data.extractions || []);
+      const extractions = data.extractions || [];
+      setHistory(extractions);
+      return extractions; // 返回历史记录数据
     } catch (err) {
       console.error('Failed to fetch history:', err);
+      return [];
     }
   };
 
@@ -92,9 +134,42 @@ export default function Home() {
     }
   };
 
-  // 组件加载时获取历史记录
+  // 使用 ref 追踪上一次的完成数量
+  const previousCompletedRef = useRef<number>(0);
+
+  // 组件加载时获取历史记录和启动队列状态轮询
   useEffect(() => {
     fetchHistory();
+    
+    // 轮询队列状态
+    const fetchQueueStatus = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/api/queue/status');
+        const data = await res.json();
+        
+        // 检测是否有新任务完成
+        if (data.summary.completed > previousCompletedRef.current && previousCompletedRef.current > 0) {
+          // 有新任务完成，刷新历史记录并自动激活最新的
+          const updatedHistory = await fetchHistory();
+          if (updatedHistory.length > 0) {
+            // 自动加载最新的历史记录（第一条）
+            loadHistoryItem(updatedHistory[0].id);
+          }
+        }
+        
+        // 更新追踪的完成数量
+        previousCompletedRef.current = data.summary.completed;
+        
+        setQueueStatus(data);
+      } catch (error) {
+        console.error('Failed to fetch queue status:', error);
+      }
+    };
+    
+    fetchQueueStatus();
+    const interval = setInterval(fetchQueueStatus, 2000); // 每2秒更新一次
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Format numbers like Twitter (1.2K, 3.5M, etc)
@@ -402,86 +477,100 @@ export default function Home() {
       )}
         </div>
 
-        {/* Right Column - Additional Features */}
+        {/* Right Column - Queue Status */}
         <div className="flex-1 overflow-y-auto bg-gray-50">
           <div className="p-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">分析面板</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">任务队列</h3>
               
-              {tweets.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Tweet Statistics */}
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">统计信息</h4>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="flex justify-between">
-                        <span>总推文数</span>
-                        <span className="font-medium">{tweets.length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>总互动量</span>
-                        <span className="font-medium">
-                          {tweets.reduce((sum, t) => {
-                            const likes = parseInt(t.stats.likes.replace(/,/g, '')) || 0;
-                            const retweets = parseInt(t.stats.retweets.replace(/,/g, '')) || 0;
-                            const replies = parseInt(t.stats.replies.replace(/,/g, '')) || 0;
-                            return sum + likes + retweets + replies;
-                          }, 0).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>平均点赞数</span>
-                        <span className="font-medium">
-                          {Math.round(tweets.reduce((sum, t) => 
-                            sum + (parseInt(t.stats.likes.replace(/,/g, '')) || 0), 0) / tweets.length).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
+              {/* Queue Summary */}
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-2xl font-bold text-gray-900">{queueStatus.summary.pending}</div>
+                  <div className="text-xs text-gray-500">排队中</div>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <div className="text-2xl font-bold text-blue-600">{queueStatus.summary.processing}</div>
+                  <div className="text-xs text-gray-500">处理中</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3">
+                  <div className="text-2xl font-bold text-green-600">{queueStatus.summary.completed}</div>
+                  <div className="text-xs text-gray-500">已完成</div>
+                </div>
+                <div className="bg-red-50 rounded-lg p-3">
+                  <div className="text-2xl font-bold text-red-600">{queueStatus.summary.failed}</div>
+                  <div className="text-xs text-gray-500">失败</div>
+                </div>
+              </div>
+              
+              {/* Current Task */}
+              {queueStatus.currentTask && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">正在处理</h4>
+                  <div className="text-xs text-gray-600 truncate mb-2">{queueStatus.currentTask.url}</div>
+                  <div className="w-full bg-blue-100 rounded-full h-2 mb-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${queueStatus.currentTask.progress}%` }}
+                    />
                   </div>
-
-                  {/* Quick Actions */}
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">快速操作</h4>
-                    <div className="space-y-2">
-                      <button className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
-                        📊 生成分析报告
-                      </button>
-                      <button className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
-                        💾 导出为 JSON
-                      </button>
-                      <button className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
-                        📋 复制所有文本
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Top Engagement */}
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">最高互动推文</h4>
-                    {(() => {
-                      const topTweet = tweets.reduce((max, t) => {
-                        const current = parseInt(t.stats.likes.replace(/,/g, '')) || 0;
-                        const maxLikes = parseInt(max.stats.likes.replace(/,/g, '')) || 0;
-                        return current > maxLikes ? t : max;
-                      }, tweets[0]);
-                      return (
-                        <div className="text-sm text-gray-600">
-                          <p className="line-clamp-2 mb-2">{topTweet.content.text}</p>
-                          <p className="text-xs text-gray-500">
-                            ❤️ {formatNumber(topTweet.stats.likes)} · 
-                            🔄 {formatNumber(topTweet.stats.retweets)}
-                          </p>
-                        </div>
-                      );
-                    })()}
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{queueStatus.currentTask.message}</span>
+                    <span>{Math.floor(queueStatus.currentTask.elapsed)}秒</span>
                   </div>
                 </div>
-              ) : (
+              )}
+              
+              {/* Queue List */}
+              {queueStatus.queue.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">排队中的任务</h4>
+                  <div className="space-y-2">
+                    {queueStatus.queue.map((task, index) => (
+                      <div key={task.task_id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">#{task.position}</span>
+                          <span className="text-gray-600 truncate max-w-[150px]">{task.url}</span>
+                        </div>
+                        <span className="text-gray-500">{task.estimatedTime}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Recent Tasks */}
+              {queueStatus.recent.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">最近完成</h4>
+                  <div className="space-y-2">
+                    {queueStatus.recent.map((task) => (
+                      <div key={task.task_id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                        <div className="flex items-center gap-2">
+                          {task.status === 'completed' ? (
+                            <span className="text-green-500">✓</span>
+                          ) : (
+                            <span className="text-red-500">✗</span>
+                          )}
+                          <span className="text-gray-600 truncate max-w-[150px]">{task.url}</span>
+                        </div>
+                        <span className="text-gray-500">{new Date(task.completedAt).toLocaleTimeString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Empty State */}
+              {queueStatus.summary.pending === 0 && 
+               queueStatus.summary.processing === 0 && 
+               queueStatus.recent.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
                   <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-sm">提取推文后将在此显示分析数据</p>
+                  <p className="text-sm">队列空闲</p>
+                  <p className="text-xs text-gray-400 mt-1">等待新任务...</p>
                 </div>
               )}
             </div>

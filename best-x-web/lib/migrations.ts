@@ -48,5 +48,60 @@ export const migrations: MigrationScript[] = [
       'DROP INDEX IF EXISTS idx_author_handle',
       'DROP INDEX IF EXISTS idx_url'
     ]
+  },
+  {
+    name: '003_create_task_queue_table',
+    up: `
+      CREATE TABLE IF NOT EXISTS task_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        
+        -- 任务标识
+        task_id TEXT UNIQUE NOT NULL,
+        
+        -- 任务参数
+        url TEXT NOT NULL,
+        scroll_times INTEGER DEFAULT 3,
+        
+        -- 任务状态: pending, processing, completed, failed, cancelled
+        status TEXT NOT NULL DEFAULT 'pending',
+        priority INTEGER DEFAULT 0,  -- 数字越小越优先
+        
+        -- 执行信息
+        retry_count INTEGER DEFAULT 0,
+        worker_id TEXT,  -- 处理器标识
+        
+        -- 进度信息
+        progress INTEGER DEFAULT 0,  -- 进度百分比 0-100
+        progress_message TEXT,  -- 进度描述
+        
+        -- 时间信息
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        started_at DATETIME,
+        completed_at DATETIME,
+        
+        -- 结果信息
+        error_message TEXT,
+        result_id INTEGER,  -- 关联到 extractions 表的 id
+        
+        -- 用户信息（可选）
+        user_id TEXT
+      )
+    `,
+    down: 'DROP TABLE IF EXISTS task_queue'
+  },
+  {
+    name: '004_create_task_queue_indexes',
+    up: [
+      'CREATE INDEX IF NOT EXISTS idx_task_status ON task_queue(status)',
+      'CREATE INDEX IF NOT EXISTS idx_task_priority ON task_queue(priority, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_task_id ON task_queue(task_id)',
+      'CREATE INDEX IF NOT EXISTS idx_task_created ON task_queue(created_at DESC)'
+    ],
+    down: [
+      'DROP INDEX IF EXISTS idx_task_status',
+      'DROP INDEX IF EXISTS idx_task_priority',
+      'DROP INDEX IF EXISTS idx_task_id',
+      'DROP INDEX IF EXISTS idx_task_created'
+    ]
   }
 ];

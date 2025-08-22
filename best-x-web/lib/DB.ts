@@ -57,4 +57,9 @@ export class DB {
   public close(): void {
     this.db.close();
   }
+  
+  // 获取原始数据库实例（用于 Model 类）
+  public getDB(): SQLiteDatabase {
+    return this.db;
+  }
 }

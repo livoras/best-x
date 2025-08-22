@@ -7,6 +7,7 @@ import { DB } from './lib/DB';
 import { Migration } from './lib/Migration';
 import { migrations } from './lib/migrations';
 import { ExtractionsModel } from './lib/models/ExtractionsModel';
+import QueueModel from './lib/models/QueueModel';
 
 console.log('Starting server...');
 const app = express();
@@ -19,6 +20,7 @@ interface FetchTweetRequest {
   scrollTimes?: number;
 }
 
+// 改造为入队操作（异步处理）
 app.post('/api/fetch-tweet', async (req: Request<{}, {}, FetchTweetRequest>, res: Response) => {
   const { url, scrollTimes = 3 } = req.body;
   
@@ -29,24 +31,67 @@ app.post('/api/fetch-tweet', async (req: Request<{}, {}, FetchTweetRequest>, res
   try {
     console.log(`📥 接收请求: ${url}, 滚动次数: ${scrollTimes}`);
     
-    // 调用函数提取数据
-    const result = await getXPost(url, { scrollTimes });
+    // 添加任务到队列
+    const taskId = queueModel.addTask(url, scrollTimes);
     
-    // 保存到数据库
-    const extractionId = extractionsModel.saveExtraction(result, scrollTimes, 0);
-    console.log(`💾 数据已保存，ID: ${extractionId}`);
-    
-    // 从数据库读取刚保存的数据
-    const savedData = extractionsModel.getExtraction(extractionId);
-    if (!savedData) {
-      throw new Error('保存后无法读取数据');
-    }
-    
-    // 返回数据库中的数据（包含数据库ID）
-    res.json({ ...savedData, extractionId });
+    // 立即返回任务ID
+    res.json({ 
+      taskId,
+      status: 'queued',
+      message: '任务已加入队列'
+    });
   } catch (error: any) {
     console.error('Error:', error);
-    res.status(500).json({ error: error.message || '获取推文失败' });
+    res.status(500).json({ error: error.message || '添加任务失败' });
+  }
+});
+
+// 查询任务状态
+app.get('/api/task/:taskId', (req: Request, res: Response) => {
+  try {
+    const task = queueModel.getTask(req.params.taskId);
+    
+    if (!task) {
+      return res.status(404).json({ error: '任务不存在' });
+    }
+    
+    // 如果任务完成，附带结果数据
+    let result = null;
+    if (task.status === 'completed' && task.result_id) {
+      result = extractionsModel.getExtraction(task.result_id);
+    }
+    
+    res.json({ ...task, result });
+  } catch (error: any) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message || '查询任务失败' });
+  }
+});
+
+// 获取队列状态
+app.get('/api/queue/status', (req: Request, res: Response) => {
+  try {
+    const status = queueModel.getQueueStatus();
+    res.json(status);
+  } catch (error: any) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message || '获取队列状态失败' });
+  }
+});
+
+// 取消任务
+app.delete('/api/task/:taskId', (req: Request, res: Response) => {
+  try {
+    const success = queueModel.cancelTask(req.params.taskId);
+    
+    if (!success) {
+      return res.status(400).json({ error: '无法取消该任务' });
+    }
+    
+    res.json({ message: '任务已取消' });
+  } catch (error: any) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message || '取消任务失败' });
   }
 });
 
@@ -175,8 +220,67 @@ app.get('/api/search', (req: Request, res: Response) => {
 // 数据库路径
 const DB_PATH = join(process.cwd(), 'data', 'tweets.db');
 
+// 队列处理器
+let isProcessing = false;
+async function startQueueProcessor() {
+  console.log('🚀 队列处理器已启动');
+  
+  // 每2秒检查一次队列
+  setInterval(async () => {
+    if (isProcessing) return; // 如果正在处理，跳过
+    
+    try {
+      // 获取下一个任务
+      const task = queueModel.getNextTask();
+      if (!task) return; // 没有待处理任务
+      
+      isProcessing = true;
+      console.log(`🔄 开始处理任务: ${task.task_id} - ${task.url}`);
+      
+      try {
+        // 更新进度：开始抓取
+        queueModel.updateProgress(task.task_id, 10, '正在连接页面...');
+        
+        // 调用抓取函数
+        const result = await getXPost(task.url, { 
+          scrollTimes: task.scroll_times,
+          onProgress: (progress: number, message: string) => {
+            // 进度回调
+            queueModel.updateProgress(task.task_id, 10 + progress * 0.8, message);
+          }
+        });
+        
+        // 更新进度：保存数据
+        queueModel.updateProgress(task.task_id, 90, '正在保存数据...');
+        
+        // 保存到数据库
+        const extractionId = extractionsModel.saveExtraction(result, task.scroll_times, 0);
+        
+        // 标记任务完成
+        queueModel.completeTask(task.task_id, extractionId);
+        console.log(`✅ 任务完成: ${task.task_id}`);
+        
+      } catch (error: any) {
+        console.error(`❌ 任务失败: ${task.task_id}`, error);
+        queueModel.failTask(task.task_id, error.message || '未知错误');
+      }
+      
+    } catch (error) {
+      console.error('队列处理器错误:', error);
+    } finally {
+      isProcessing = false;
+    }
+  }, 2000);
+  
+  // 定期清理旧任务（每小时）
+  setInterval(() => {
+    queueModel.cleanOldTasks();
+  }, 60 * 60 * 1000);
+}
+
 // Model 实例（像 confow 那样）
 let extractionsModel: ExtractionsModel;
+let queueModel: QueueModel;
 
 // 启动服务器
 async function startServer() {
@@ -197,14 +301,21 @@ async function startServer() {
     // 初始化 Model
     ExtractionsModel.setDB(db);
     extractionsModel = ExtractionsModel.getInstance();
+    queueModel = new QueueModel(db);
     
     console.log('✨ 数据库初始化完成');
+    
+    // 启动队列处理器
+    startQueueProcessor();
     
     const PORT = 3001;
     app.listen(PORT, () => {
       console.log(`✅ 服务器运行在 http://localhost:${PORT}`);
       console.log('📝 API 端点:');
-      console.log('  - POST   /api/fetch-tweet     提取推文');
+      console.log('  - POST   /api/fetch-tweet      添加提取任务');
+      console.log('  - GET    /api/queue/status     获取队列状态');
+      console.log('  - GET    /api/task/:id         查询任务详情');
+      console.log('  - DELETE /api/task/:id         取消任务');
       console.log('  - GET    /api/extractions      获取历史');
       console.log('  - GET    /api/extractions/:id  获取详情');
       console.log('  - DELETE /api/extractions/:id  删除记录');
