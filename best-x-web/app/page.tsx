@@ -345,7 +345,7 @@ export default function Home() {
       {/* Results Section */}
       {(tweets.length > 0 || loadingHistory) && (
         <div className="px-4 pb-4">
-          <div className="bg-white rounded-t-lg px-4 py-3 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+          <div className="bg-white rounded-t-lg px-4 py-3 border-b border-gray-200 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">
                 {loadingHistory ? '加载中...' : `${tweets.length} Posts ${selectedHistoryId ? '(历史记录)' : ''}`}
