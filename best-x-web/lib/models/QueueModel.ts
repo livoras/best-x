@@ -175,6 +175,36 @@ export default class QueueModel {
       WHERE created_at > datetime('now', '-24 hours')
     `).get() as any;
     
+    // 获取所有任务列表（最近24小时内）
+    const allTasks = db.prepare(`
+      SELECT 
+        task_id, 
+        url, 
+        status, 
+        progress,
+        progress_message,
+        priority,
+        created_at as createdAt,
+        started_at as startedAt, 
+        completed_at as completedAt,
+        error_message as error,
+        CASE 
+          WHEN status = 'processing' THEN (strftime('%s', 'now') - strftime('%s', started_at))
+          ELSE NULL
+        END as elapsed
+      FROM task_queue
+      WHERE created_at > datetime('now', '-24 hours')
+      ORDER BY 
+        CASE 
+          WHEN status = 'processing' THEN 0
+          WHEN status = 'pending' THEN 1
+          WHEN status = 'completed' THEN 2
+          WHEN status = 'failed' THEN 3
+        END,
+        created_at DESC
+      LIMIT 200
+    `).all() as any[];
+    
     // 获取当前处理中的任务
     const currentTask = db.prepare(`
       SELECT task_id, url, progress, progress_message,
@@ -231,6 +261,19 @@ export default class QueueModel {
         status: r.status as 'completed' | 'failed',
         completedAt: r.completedAt,
         error: r.error
+      })),
+      allTasks: allTasks.map(t => ({
+        task_id: t.task_id,
+        url: t.url,
+        status: t.status,
+        progress: t.progress,
+        message: t.progress_message,
+        priority: t.priority,
+        createdAt: t.createdAt,
+        startedAt: t.startedAt,
+        completedAt: t.completedAt,
+        error: t.error,
+        elapsed: t.elapsed
       }))
     };
   }

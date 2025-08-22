@@ -15,6 +15,21 @@ interface ExtractionRecord {
   extract_time: string;
 }
 
+// 任务接口
+interface Task {
+  task_id: string;
+  url: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  message?: string;
+  priority?: number;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+  elapsed?: number;
+}
+
 // 任务队列状态接口
 interface QueueStatus {
   summary: {
@@ -40,6 +55,7 @@ interface QueueStatus {
     completedAt: string;
     error?: string;
   }>;
+  allTasks: Task[];
 }
 
 export default function Home() {
@@ -57,8 +73,12 @@ export default function Home() {
     summary: { pending: 0, processing: 0, completed: 0, failed: 0 },
     currentTask: null,
     queue: [],
-    recent: []
+    recent: [],
+    allTasks: []
   });
+  
+  // 筛选状态
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'processing' | 'pending' | 'completed' | 'failed'>('all');
 
   const fetchTweets = async () => {
     if (!url) {
@@ -483,96 +503,142 @@ export default function Home() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">任务队列</h3>
               
-              {/* Queue Summary */}
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-2xl font-bold text-gray-900">{queueStatus.summary.pending}</div>
-                  <div className="text-xs text-gray-500">排队中</div>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-3">
-                  <div className="text-2xl font-bold text-blue-600">{queueStatus.summary.processing}</div>
-                  <div className="text-xs text-gray-500">处理中</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-3">
-                  <div className="text-2xl font-bold text-green-600">{queueStatus.summary.completed}</div>
-                  <div className="text-xs text-gray-500">已完成</div>
-                </div>
-                <div className="bg-red-50 rounded-lg p-3">
-                  <div className="text-2xl font-bold text-red-600">{queueStatus.summary.failed}</div>
-                  <div className="text-xs text-gray-500">失败</div>
-                </div>
+              {/* Filter Tabs - Pill Style */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                <button
+                  onClick={() => setSelectedFilter('all')}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                    selectedFilter === 'all' 
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                  }`}
+                >
+                  全部 {queueStatus.summary.pending + queueStatus.summary.processing + queueStatus.summary.completed + queueStatus.summary.failed}
+                </button>
+                <button
+                  onClick={() => setSelectedFilter('processing')}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                    selectedFilter === 'processing' 
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                  }`}
+                >
+                  进行中 {queueStatus.summary.processing}
+                </button>
+                <button
+                  onClick={() => setSelectedFilter('pending')}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                    selectedFilter === 'pending' 
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                  }`}
+                >
+                  排队中 {queueStatus.summary.pending}
+                </button>
+                <button
+                  onClick={() => setSelectedFilter('completed')}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                    selectedFilter === 'completed' 
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                  }`}
+                >
+                  已完成 {queueStatus.summary.completed}
+                </button>
+                <button
+                  onClick={() => setSelectedFilter('failed')}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                    selectedFilter === 'failed' 
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                  }`}
+                >
+                  失败 {queueStatus.summary.failed}
+                </button>
               </div>
               
-              {/* Current Task */}
-              {queueStatus.currentTask && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">正在处理</h4>
-                  <div className="text-xs text-gray-600 truncate mb-2">{queueStatus.currentTask.url}</div>
-                  <div className="w-full bg-blue-100 rounded-full h-2 mb-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${queueStatus.currentTask.progress}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>{queueStatus.currentTask.message}</span>
-                    <span>{Math.floor(queueStatus.currentTask.elapsed)}秒</span>
-                  </div>
-                </div>
-              )}
-              
-              {/* Queue List */}
-              {queueStatus.queue.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">排队中的任务</h4>
-                  <div className="space-y-2">
-                    {queueStatus.queue.map((task, index) => (
-                      <div key={task.task_id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">#{task.position}</span>
-                          <span className="text-gray-600 truncate max-w-[150px]">{task.url}</span>
-                        </div>
-                        <span className="text-gray-500">{task.estimatedTime}</span>
+              {/* Unified Task List */}
+              <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+                {(() => {
+                  // 筛选任务
+                  const filteredTasks = queueStatus.allTasks?.filter(task => 
+                    selectedFilter === 'all' || task.status === selectedFilter
+                  ) || [];
+                  
+                  if (filteredTasks.length === 0) {
+                    // 空状态
+                    return (
+                      <div className="text-center py-12 text-gray-500">
+                        <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm">
+                          {selectedFilter === 'all' ? '暂无任务' : 
+                           selectedFilter === 'processing' ? '没有正在处理的任务' :
+                           selectedFilter === 'pending' ? '没有排队中的任务' :
+                           selectedFilter === 'completed' ? '没有已完成的任务' :
+                           '没有失败的任务'}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Recent Tasks */}
-              {queueStatus.recent.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">最近完成</h4>
-                  <div className="space-y-2">
-                    {queueStatus.recent.map((task) => (
-                      <div key={task.task_id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
-                        <div className="flex items-center gap-2">
-                          {task.status === 'completed' ? (
-                            <span className="text-green-500">✓</span>
-                          ) : (
-                            <span className="text-red-500">✗</span>
+                    );
+                  }
+                  
+                  // 渲染任务列表
+                  return filteredTasks.map((task) => (
+                    <div key={task.task_id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          {/* 状态图标和URL */}
+                          <div className="flex items-center gap-2 mb-1">
+                            {task.status === 'completed' && <span className="text-green-500">✓</span>}
+                            {task.status === 'failed' && <span className="text-red-500">✗</span>}
+                            {task.status === 'processing' && (
+                              <svg className="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            )}
+                            {task.status === 'pending' && <span className="text-gray-400">⏳</span>}
+                            <span className="text-sm text-gray-700 truncate flex-1">{task.url}</span>
+                          </div>
+                          
+                          {/* 进度条（仅处理中任务） */}
+                          {task.status === 'processing' && task.progress !== undefined && (
+                            <div className="mb-2">
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div 
+                                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                                  style={{ width: `${task.progress}%` }}
+                                />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {task.message || '处理中...'} - {task.elapsed ? `${Math.floor(task.elapsed)}秒` : ''}
+                              </div>
+                            </div>
                           )}
-                          <span className="text-gray-600 truncate max-w-[150px]">{task.url}</span>
+                          
+                          {/* 错误信息（仅失败任务） */}
+                          {task.status === 'failed' && task.error && (
+                            <div className="text-xs text-red-600 mt-1">{task.error}</div>
+                          )}
+                          
+                          {/* 时间戳 */}
+                          <div className="text-xs text-gray-400 mt-1">
+                            {task.status === 'completed' && task.completedAt && 
+                              `完成于 ${new Date(task.completedAt).toLocaleTimeString()}`}
+                            {task.status === 'failed' && task.completedAt && 
+                              `失败于 ${new Date(task.completedAt).toLocaleTimeString()}`}
+                            {task.status === 'pending' && task.createdAt && 
+                              `创建于 ${new Date(task.createdAt).toLocaleTimeString()}`}
+                            {task.status === 'processing' && task.startedAt && 
+                              `开始于 ${new Date(task.startedAt).toLocaleTimeString()}`}
+                          </div>
                         </div>
-                        <span className="text-gray-500">{new Date(task.completedAt).toLocaleTimeString()}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Empty State */}
-              {queueStatus.summary.pending === 0 && 
-               queueStatus.summary.processing === 0 && 
-               queueStatus.recent.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-sm">队列空闲</p>
-                  <p className="text-xs text-gray-400 mt-1">等待新任务...</p>
-                </div>
-              )}
+                    </div>
+                  ));
+                })()}
+              </div>
             </div>
           </div>
         </div>
