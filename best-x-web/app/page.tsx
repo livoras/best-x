@@ -106,26 +106,20 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-20">
-        <div className="px-4 py-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
-            <svg className="w-7 h-7 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-            </svg>
-            Post Extractor
-          </h1>
-        </div>
-      </div>
-
+    <main className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Main Layout with Sidebar */}
-      <div className="flex h-[calc(100vh-73px)]">
+      <div className="flex h-screen">
         {/* Sidebar - History */}
         <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">提取历史</h2>
-            <p className="text-sm text-gray-500 mt-1">点击查看历史记录</p>
+          {/* Logo Section */}
+          <div className="p-4 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-purple-50">
+            <div className="flex items-center gap-2">
+              <svg className="w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              <h1 className="text-lg font-bold text-gray-900">Post Extractor</h1>
+            </div>
+            <p className="text-xs text-gray-600 mt-2 ml-8">提取推文历史记录</p>
           </div>
           
           <div className="divide-y divide-gray-100">
@@ -138,8 +132,8 @@ export default function Home() {
                 <div
                   key={item.id}
                   onClick={() => loadHistoryItem(item.id)}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    selectedHistoryId === item.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors border-l-2 ${
+                    selectedHistoryId === item.id ? 'bg-blue-50 border-l-blue-500' : 'border-transparent'
                   }`}
                 >
                   <div className="flex gap-3">
@@ -187,11 +181,11 @@ export default function Home() {
         {/* Middle Column - Input and Tweets */}
         <div className="w-[600px] overflow-y-auto border-r border-gray-200">
           {/* Input Section */}
-          <div className="px-4 py-8">
-        <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
-          <div className="space-y-5">
+          <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+        <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+          <div className="space-y-3">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
                 Post URL
               </label>
               <input
@@ -199,12 +193,12 @@ export default function Home() {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://x.com/user/status/123456789"
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 transition-all"
+                className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
                 Load More Comments: <span className="text-blue-600 font-bold">{scrollTimes}</span> scrolls
               </label>
               <input
@@ -213,7 +207,7 @@ export default function Home() {
                 max="10"
                 value={scrollTimes}
                 onChange={(e) => setScrollTimes(parseInt(e.target.value))}
-                className="w-full h-2 bg-gradient-to-r from-gray-200 to-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="w-full h-1.5 bg-gradient-to-r from-gray-200 to-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>Less</span>
@@ -224,15 +218,15 @@ export default function Home() {
             <button
               onClick={fetchTweets}
               disabled={loading || loadingHistory}
-              className={`w-full py-3 rounded-xl font-semibold transition-all transform shadow-lg ${
+              className={`w-full py-2 rounded-md text-sm font-semibold transition-all transform shadow-sm ${
                 loading || loadingHistory
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:scale-[1.02] active:scale-[0.98] hover:shadow-xl'
+                  : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:scale-[1.01] active:scale-[0.99] hover:shadow-md'
               }`}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                   </svg>
@@ -243,8 +237,8 @@ export default function Home() {
           </div>
 
           {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-start gap-2">
-              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <div className="mt-3 p-2 bg-red-50 border border-red-200 text-red-600 rounded-md flex items-start gap-2 text-sm">
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
               </svg>
               {error}
@@ -255,10 +249,10 @@ export default function Home() {
 
       {/* Results Section */}
       {(tweets.length > 0 || loadingHistory) && (
-        <div className="px-4 pb-8">
-          <div className="bg-white rounded-t-2xl px-4 py-4 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div className="px-4 pb-4">
+          <div className="bg-white rounded-t-lg px-4 py-3 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-base font-semibold text-gray-900">
                 {loadingHistory ? '加载中...' : `${tweets.length} Posts ${selectedHistoryId ? '(历史记录)' : ''}`}
               </h2>
               {selectedHistoryId && (
@@ -269,7 +263,7 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="bg-white rounded-b-2xl shadow-xl divide-y divide-gray-100">
+          <div className="bg-white rounded-b-lg shadow-sm divide-y divide-gray-100">
             {tweets.map((tweet, index) => (
               <article 
                 key={index}

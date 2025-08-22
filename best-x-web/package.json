@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start"
+    "start": "next start",
+    "server": "tsx server.ts",
+    "web": "next dev --turbopack"
   },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
