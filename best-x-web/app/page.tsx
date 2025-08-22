@@ -184,10 +184,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Middle Column - Input and Tweets */}
+        <div className="w-[600px] overflow-y-auto border-r border-gray-200">
           {/* Input Section */}
-          <div className="max-w-2xl mx-auto px-4 py-8">
+          <div className="px-4 py-8">
         <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
           <div className="space-y-5">
             <div>
@@ -255,7 +255,7 @@ export default function Home() {
 
       {/* Results Section */}
       {(tweets.length > 0 || loadingHistory) && (
-        <div className="max-w-2xl mx-auto px-4 pb-8">
+        <div className="px-4 pb-8">
           <div className="bg-white rounded-t-2xl px-4 py-4 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">
@@ -406,6 +406,92 @@ export default function Home() {
           </div>
         </div>
       )}
+        </div>
+
+        {/* Right Column - Additional Features */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">分析面板</h3>
+              
+              {tweets.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Tweet Statistics */}
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">统计信息</h4>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex justify-between">
+                        <span>总推文数</span>
+                        <span className="font-medium">{tweets.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>总互动量</span>
+                        <span className="font-medium">
+                          {tweets.reduce((sum, t) => {
+                            const likes = parseInt(t.stats.likes.replace(/,/g, '')) || 0;
+                            const retweets = parseInt(t.stats.retweets.replace(/,/g, '')) || 0;
+                            const replies = parseInt(t.stats.replies.replace(/,/g, '')) || 0;
+                            return sum + likes + retweets + replies;
+                          }, 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>平均点赞数</span>
+                        <span className="font-medium">
+                          {Math.round(tweets.reduce((sum, t) => 
+                            sum + (parseInt(t.stats.likes.replace(/,/g, '')) || 0), 0) / tweets.length).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">快速操作</h4>
+                    <div className="space-y-2">
+                      <button className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+                        📊 生成分析报告
+                      </button>
+                      <button className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+                        💾 导出为 JSON
+                      </button>
+                      <button className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+                        📋 复制所有文本
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Top Engagement */}
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">最高互动推文</h4>
+                    {(() => {
+                      const topTweet = tweets.reduce((max, t) => {
+                        const current = parseInt(t.stats.likes.replace(/,/g, '')) || 0;
+                        const maxLikes = parseInt(max.stats.likes.replace(/,/g, '')) || 0;
+                        return current > maxLikes ? t : max;
+                      }, tweets[0]);
+                      return (
+                        <div className="text-sm text-gray-600">
+                          <p className="line-clamp-2 mb-2">{topTweet.content.text}</p>
+                          <p className="text-xs text-gray-500">
+                            ❤️ {formatNumber(topTweet.stats.likes)} · 
+                            🔄 {formatNumber(topTweet.stats.retweets)}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <p className="text-sm">提取推文后将在此显示分析数据</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </main>
