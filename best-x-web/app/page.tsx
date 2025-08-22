@@ -80,6 +80,10 @@ export default function Home() {
   
   // 筛选状态
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'processing' | 'pending' | 'completed' | 'failed'>('all');
+  
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchTweets = async () => {
     if (!url) {
@@ -165,7 +169,7 @@ export default function Home() {
     // 轮询队列状态
     const fetchQueueStatus = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/queue/status');
+        const res = await fetch(`http://localhost:3001/api/queue/status?page=${currentPage}&pageSize=${pageSize}&filter=${selectedFilter}`);
         const data = await res.json();
         
         // 检测是否有新任务完成
@@ -191,7 +195,7 @@ export default function Home() {
     const interval = setInterval(fetchQueueStatus, 2000); // 每2秒更新一次
     
     return () => clearInterval(interval);
-  }, []);
+  }, [currentPage, pageSize, selectedFilter]);
 
   // Format numbers like Twitter (1.2K, 3.5M, etc)
   const formatNumber = (num: string) => {
@@ -453,6 +457,10 @@ export default function Home() {
           queueStatus={queueStatus}
           selectedFilter={selectedFilter}
           setSelectedFilter={setSelectedFilter}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
         />
       </div>
     </main>

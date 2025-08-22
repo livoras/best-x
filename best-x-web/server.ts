@@ -68,10 +68,14 @@ app.get('/api/task/:taskId', (req: Request, res: Response) => {
   }
 });
 
-// 获取队列状态
+// 获取队列状态（支持分页）
 app.get('/api/queue/status', (req: Request, res: Response) => {
   try {
-    const status = queueModel.getQueueStatus();
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 10;
+    const filter = (req.query.filter as string) || 'all';
+    
+    const status = queueModel.getQueueStatus(page, pageSize, filter);
     res.json(status);
   } catch (error: any) {
     console.error('Error:', error);

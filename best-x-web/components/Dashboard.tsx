@@ -43,6 +43,12 @@ interface QueueStatus {
     error?: string;
   }>;
   allTasks: Task[];
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 interface DashboardProps {
@@ -57,6 +63,10 @@ interface DashboardProps {
   queueStatus: QueueStatus;
   selectedFilter: 'all' | 'processing' | 'pending' | 'completed' | 'failed';
   setSelectedFilter: (filter: 'all' | 'processing' | 'pending' | 'completed' | 'failed') => void;
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
+  pageSize: number;
+  setPageSize: (size: number) => void;
 }
 
 export default function Dashboard({
@@ -70,7 +80,11 @@ export default function Dashboard({
   fetchTweets,
   queueStatus,
   selectedFilter,
-  setSelectedFilter
+  setSelectedFilter,
+  currentPage,
+  setCurrentPage,
+  pageSize,
+  setPageSize
 }: DashboardProps) {
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
@@ -148,7 +162,10 @@ export default function Dashboard({
           {/* Filter Tabs - Pill Style */}
           <div className="flex gap-2 mb-4 flex-wrap">
             <button
-              onClick={() => setSelectedFilter('all')}
+              onClick={() => {
+                setSelectedFilter('all');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 selectedFilter === 'all' 
                   ? 'bg-gray-800 text-white shadow-sm' 
@@ -161,7 +178,10 @@ export default function Dashboard({
               </span>
             </button>
             <button
-              onClick={() => setSelectedFilter('processing')}
+              onClick={() => {
+                setSelectedFilter('processing');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 selectedFilter === 'processing' 
                   ? 'bg-blue-500 text-white shadow-sm' 
@@ -174,7 +194,10 @@ export default function Dashboard({
               </span>
             </button>
             <button
-              onClick={() => setSelectedFilter('pending')}
+              onClick={() => {
+                setSelectedFilter('pending');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 selectedFilter === 'pending' 
                   ? 'bg-amber-500 text-white shadow-sm' 
@@ -187,7 +210,10 @@ export default function Dashboard({
               </span>
             </button>
             <button
-              onClick={() => setSelectedFilter('completed')}
+              onClick={() => {
+                setSelectedFilter('completed');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 selectedFilter === 'completed' 
                   ? 'bg-green-500 text-white shadow-sm' 
@@ -200,7 +226,10 @@ export default function Dashboard({
               </span>
             </button>
             <button
-              onClick={() => setSelectedFilter('failed')}
+              onClick={() => {
+                setSelectedFilter('failed');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 selectedFilter === 'failed' 
                   ? 'bg-red-500 text-white shadow-sm' 
@@ -215,7 +244,7 @@ export default function Dashboard({
           </div>
           
           {/* Unified Task List */}
-          <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+          <div className="space-y-2">
             {(() => {
               // 筛选任务
               const filteredTasks = queueStatus.allTasks?.filter(task => 
@@ -296,6 +325,91 @@ export default function Dashboard({
               ));
             })()}
           </div>
+          
+          {/* 分页控件 */}
+          {queueStatus.pagination && queueStatus.pagination.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t pt-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    currentPage === 1 
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                      : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  上一页
+                </button>
+                
+                {/* 页码按钮 */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, queueStatus.pagination.totalPages) }, (_, i) => {
+                    const pageNum = i + 1;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 text-sm rounded-md transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  {queueStatus.pagination.totalPages > 5 && (
+                    <>
+                      <span className="px-2 text-gray-400">...</span>
+                      <button
+                        onClick={() => setCurrentPage(queueStatus.pagination!.totalPages)}
+                        className={`w-8 h-8 text-sm rounded-md transition-colors ${
+                          currentPage === queueStatus.pagination.totalPages
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {queueStatus.pagination.totalPages}
+                      </button>
+                    </>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => setCurrentPage(Math.min(queueStatus.pagination!.totalPages, currentPage + 1))}
+                  disabled={currentPage === queueStatus.pagination.totalPages}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    currentPage === queueStatus.pagination.totalPages
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                      : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  下一页
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600">
+                  第 {currentPage} 页，共 {queueStatus.pagination.totalPages} 页
+                </span>
+                
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={10}>10 条/页</option>
+                  <option value={20}>20 条/页</option>
+                  <option value={50}>50 条/页</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

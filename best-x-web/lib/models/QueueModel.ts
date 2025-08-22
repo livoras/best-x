@@ -49,6 +49,13 @@ export interface QueueStatus {
     completedAt: string;
     error?: string;
   }>;
+  allTasks?: Task[];
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export default class QueueModel {
@@ -160,8 +167,8 @@ export default class QueueModel {
     return stmt.get(taskId) as Task | null;
   }
 
-  // 获取队列状态概览
-  getQueueStatus(): QueueStatus {
+  // 获取队列状态概览（支持分页）
+  getQueueStatus(page: number = 1, pageSize: number = 10, filter: string = 'all'): QueueStatus {
     const db = this.db;
     
     // 统计各状态任务数
@@ -175,7 +182,23 @@ export default class QueueModel {
       WHERE created_at > datetime('now', '-24 hours')
     `).get() as any;
     
-    // 获取所有任务列表（最近24小时内）
+    // 构建筛选条件
+    let whereClause = "created_at > datetime('now', '-24 hours')";
+    if (filter !== 'all') {
+      whereClause += ` AND status = '${filter}'`;
+    }
+    
+    // 获取符合条件的总数（用于计算总页数）
+    const totalCount = db.prepare(`
+      SELECT COUNT(*) as count
+      FROM task_queue
+      WHERE ${whereClause}
+    `).get() as any;
+    
+    // 计算分页偏移
+    const offset = (page - 1) * pageSize;
+    
+    // 获取分页后的任务列表
     const allTasks = db.prepare(`
       SELECT 
         task_id, 
@@ -193,7 +216,7 @@ export default class QueueModel {
           ELSE NULL
         END as elapsed
       FROM task_queue
-      WHERE created_at > datetime('now', '-24 hours')
+      WHERE ${whereClause}
       ORDER BY 
         CASE 
           WHEN status = 'processing' THEN 0
@@ -202,7 +225,7 @@ export default class QueueModel {
           WHEN status = 'failed' THEN 3
         END,
         created_at DESC
-      LIMIT 200
+      LIMIT ${pageSize} OFFSET ${offset}
     `).all() as any[];
     
     // 获取当前处理中的任务
@@ -274,7 +297,13 @@ export default class QueueModel {
         completedAt: t.completedAt,
         error: t.error,
         elapsed: t.elapsed
-      }))
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total: totalCount.count,
+        totalPages: Math.ceil(totalCount.count / pageSize)
+      }
     };
   }
 
