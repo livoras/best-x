@@ -207,14 +207,15 @@ export default function Home() {
         {/* Sidebar - History */}
         <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
           {/* Logo Section */}
-          <div className="p-4 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-purple-50">
+          <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-purple-50">
             <div className="flex items-center gap-2">
-              <svg className="w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
               </svg>
-              <h1 className="text-lg font-bold text-gray-900">Post Extractor</h1>
+              <h1 className="text-base font-bold text-gray-900">Best-X</h1>
+              <span className="text-gray-400">·</span>
+              <p className="text-xs text-gray-600">第一手高质量推文</p>
             </div>
-            <p className="text-xs text-gray-600 mt-2 ml-8">提取推文历史记录</p>
           </div>
           
           <div className="divide-y divide-gray-100">
