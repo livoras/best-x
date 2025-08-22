@@ -170,7 +170,7 @@ export default function Home() {
             </svg>
             <h1 className="text-base font-bold text-gray-900">Best-X</h1>
             <span className="text-gray-400">·</span>
-            <p className="text-xs text-gray-600">第一手高质量推文</p>
+            <p className="text-xs text-gray-600">第一手高质量信息</p>
           </div>
           <nav className="flex gap-4">
             <Link 
