@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import type { Tweet } from '@/types/tweet';
-import Dashboard from '@/components/Dashboard';
 
 interface ExtractionRecord {
   id: number;
@@ -60,16 +60,14 @@ interface QueueStatus {
 }
 
 export default function Home() {
-  const [url, setUrl] = useState('');
-  const [scrollTimes, setScrollTimes] = useState(3);
   const [tweets, setTweets] = useState<Tweet[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [history, setHistory] = useState<ExtractionRecord[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState('');
   
-  // 队列状态
+  // 队列状态 - 仅用于检测新任务完成
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({
     summary: { pending: 0, processing: 0, completed: 0, failed: 0 },
     currentTask: null,
@@ -77,46 +75,6 @@ export default function Home() {
     recent: [],
     allTasks: []
   });
-  
-  // 筛选状态
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'processing' | 'pending' | 'completed' | 'failed'>('all');
-
-  const fetchTweets = async () => {
-    if (!url) {
-      setError('请输入推文URL');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // 提交任务到队列
-      const res = await fetch('http://localhost:3001/api/fetch-tweet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, scrollTimes })
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || '添加任务失败');
-      }
-
-      // 任务已入队
-      console.log(`任务已入队: ${data.taskId}`);
-      setUrl(''); // 清空输入框
-      setLoading(false); // 立即解除loading状态，允许继续提交
-      
-      // 显示成功消息（可选）
-      // 队列状态会通过右侧栏的轮询自动更新显示
-      
-    } catch (err: any) {
-      setError(err.message || '提交任务失败');
-      setLoading(false);
-    }
-  };
 
   // 获取历史记录
   const fetchHistory = async () => {
@@ -205,13 +163,29 @@ export default function Home() {
     <main className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header - 横贯屏幕 */}
       <div className="w-full px-6 py-3 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-          </svg>
-          <h1 className="text-base font-bold text-gray-900">Best-X</h1>
-          <span className="text-gray-400">·</span>
-          <p className="text-xs text-gray-600">第一手高质量推文</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            <h1 className="text-base font-bold text-gray-900">Best-X</h1>
+            <span className="text-gray-400">·</span>
+            <p className="text-xs text-gray-600">第一手高质量推文</p>
+          </div>
+          <nav className="flex gap-4">
+            <Link 
+              href="/" 
+              className="text-sm font-medium text-blue-600 border-b-2 border-blue-600 pb-0.5"
+            >
+              主页
+            </Link>
+            <Link 
+              href="/dashboard" 
+              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+            >
+              控制台
+            </Link>
+          </nav>
         </div>
       </div>
 
@@ -285,10 +259,10 @@ export default function Home() {
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
           </svg>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            开始提取推文
+            选择历史记录
           </h3>
           <p className="text-sm text-gray-500 max-w-sm">
-            在右侧输入推文URL开始提取，或从左侧选择历史记录查看
+            从左侧选择历史记录查看推文，或访问控制台提取新推文
           </p>
         </div>
       ) : (
@@ -440,20 +414,31 @@ export default function Home() {
       ))}
         </div>
 
-        {/* Right Column - Dashboard */}
-        <Dashboard
-          url={url}
-          setUrl={setUrl}
-          scrollTimes={scrollTimes}
-          setScrollTimes={setScrollTimes}
-          loading={loading}
-          loadingHistory={loadingHistory}
-          error={error}
-          fetchTweets={fetchTweets}
-          queueStatus={queueStatus}
-          selectedFilter={selectedFilter}
-          setSelectedFilter={setSelectedFilter}
-        />
+        {/* Right Column - Empty Space or Future Content */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+              <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                快速操作
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                访问控制台提取新推文
+              </p>
+              <Link 
+                href="/dashboard" 
+                className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+              >
+                前往控制台
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );
