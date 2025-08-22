@@ -123,7 +123,7 @@ export default function Home() {
     // 轮询队列状态
     const fetchQueueStatus = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/queue/status?page=${currentPage}&pageSize=${pageSize}&filter=${selectedFilter}`);
+        const res = await fetch('http://localhost:3001/api/queue/status');
         const data = await res.json();
         
         // 检测是否有新任务完成
@@ -149,7 +149,7 @@ export default function Home() {
     const interval = setInterval(fetchQueueStatus, 2000); // 每2秒更新一次
     
     return () => clearInterval(interval);
-  }, [currentPage, pageSize, selectedFilter]);
+  }, []);
 
   // Format numbers like Twitter (1.2K, 3.5M, etc)
   const formatNumber = (num: string) => {

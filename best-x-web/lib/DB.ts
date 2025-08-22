@@ -63,3 +63,5 @@ export class DB {
     return this.db;
   }
 }
+
+export default DB;
