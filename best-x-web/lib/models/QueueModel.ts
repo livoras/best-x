@@ -1,5 +1,6 @@
 import { DB } from '../DB';
 import Database from 'better-sqlite3';
+import { DEFAULT_SCROLLS } from '../consts';
 
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
@@ -71,7 +72,7 @@ export default class QueueModel {
   }
 
   // 添加任务到队列
-  addTask(url: string, scrollTimes: number = 3, userId?: string): string {
+  addTask(url: string, scrollTimes: number = DEFAULT_SCROLLS, userId?: string): string {
     const taskId = this.generateTaskId();
     
     const stmt = this.db.prepare(`

@@ -34,6 +34,39 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     
     // 初次加载，保存主推文和初始内容
     console.log('📸 保存初始内容（包括主推文）...');
+    
+    // 尝试点击"显示此对话"或类似按钮来展开连续推文
+    try {
+      // 查找可能的展开按钮
+      const snapshot = await client.getPageSnapshot(pageId);
+      
+      // 检查是否有"显示此对话"按钮
+      if (snapshot.includes('显示此对话') || snapshot.includes('Show this thread')) {
+        console.log('🔄 发现"显示此对话"按钮，尝试点击展开...');
+        
+        // 查找并点击按钮
+        const buttons = await client.getPageSnapshot(pageId);
+        // 使用XPath或选择器查找按钮
+        const showThreadBtn = buttons.match(/xp-\d+/g)?.find(xp => {
+          return buttons.includes(`${xp}.*显示此对话`) || buttons.includes(`${xp}.*Show this thread`);
+        });
+        
+        if (showThreadBtn) {
+          await client.browserClick(pageId, showThreadBtn, 2000);
+          console.log('✅ 已点击展开对话按钮');
+          await client.waitForTimeout(pageId, 2000);
+        }
+      }
+      
+      // 检查是否有"显示更多回复"按钮
+      if (snapshot.includes('显示更多回复') || snapshot.includes('Show more replies')) {
+        console.log('🔄 发现"显示更多回复"按钮，尝试点击展开...');
+        // 类似逻辑处理更多回复按钮
+      }
+    } catch (error) {
+      console.log('⚠️ 尝试展开对话时出错:', error);
+    }
+    
     let htmlFile = await client.pageToHtmlFile(pageId, false);
     let htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
     let $ = cheerio.load(htmlContent);
@@ -68,6 +101,19 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       const statusLinks = $article.find('a[href*="/status/"]').map((j, link) => $(link).attr('href')).get();
       const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
       
+      // 调试：记录所有找到的链接
+      if (statusLinks.length > 0) {
+        console.log(`    🔍 找到 ${statusLinks.length} 个status链接:`, statusLinks.slice(0, 3));
+      } else {
+        // 提取文本片段用于识别
+        const textPreview = $article.find('[data-testid="tweetText"]').text().substring(0, 50);
+        console.log(`    ⚠️  未找到status链接的article，文本预览: "${textPreview}..."`);
+        
+        // 尝试其他方式获取唯一标识
+        const allLinks = $article.find('a[href]').map((j, link) => $(link).attr('href')).get();
+        console.log(`    🔗 该article的所有链接:`, allLinks.slice(0, 5));
+      }
+      
       if (mainStatusLink && !seenTweets.has(mainStatusLink)) {
         seenTweets.add(mainStatusLink);
         allArticlesHtml.push($.html(el));
@@ -82,7 +128,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     });
     
     // 滚动加载更多内容，每次都收集新的articles
-    const scrollTimes = options?.scrollTimes || 3;
+    const scrollTimes = options?.scrollTimes || 10;
     console.log(`🔄 滚动 ${scrollTimes} 次加载更多内容...`);
     let filteredCount = 0;
     
@@ -90,8 +136,10 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       // 记录本次滚动前的推文数量
       const tweetsCountBefore = seenTweets.size;
       
-      await client.scrollToBottom(pageId);
-      await client.waitForTimeout(pageId, 2000);
+      // 执行2次 PageDown 作为一次滚动
+      await client.browserPressKey(pageId, 'PageDown', undefined, 300);
+      await client.browserPressKey(pageId, 'PageDown', undefined, 300);
+      await client.waitForTimeout(pageId, 500);
       
       // 每次滚动后都抓取当前的articles
       htmlFile = await client.pageToHtmlFile(pageId, false);
@@ -133,10 +181,28 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
         const statusLinks = $article.find('a[href*="/status/"]').map((k, link) => $(link).attr('href')).get();
         const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
         
+        // 调试：记录链接情况
+        if (!mainStatusLink) {
+          const textPreview = $article.find('[data-testid="tweetText"]').text().substring(0, 50);
+          console.log(`    ⚠️  滚动后未找到status链接，文本: "${textPreview}..."`);
+          // 尝试查找其他可能的唯一标识
+          const timeEl = $article.find('time');
+          const timeInfo = timeEl.length > 0 ? `时间: ${timeEl.attr('datetime')}` : '无时间';
+          console.log(`        ${timeInfo}, handle: ${handle || '无'}`);
+        }
+        
         if (mainStatusLink && !seenTweets.has(mainStatusLink)) {
           seenTweets.add(mainStatusLink);
           allArticlesHtml.push($.html(el));
           console.log(`    ✅ 收集推文: ${mainStatusLink}`);
+        } else if (!mainStatusLink) {
+          // 没有status链接但可能是thread的一部分
+          const uniqueId = `${handle}-${$article.find('time').attr('datetime')}-${$article.find('[data-testid="tweetText"]').text().substring(0, 20)}`;
+          if (!seenTweets.has(uniqueId)) {
+            seenTweets.add(uniqueId);
+            allArticlesHtml.push($.html(el));
+            console.log(`    ✅ 收集无链接推文（可能是thread）: ${uniqueId}`);
+          }
         } else if (mainStatusLink) {
           console.log(`    ⏭️  跳过重复: ${mainStatusLink}`);
         }
@@ -344,7 +410,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
 
 // 如果直接运行脚本
 if (process.argv[2]) {
-  const scrollTimes = parseInt(process.argv[3]) || 3;
+  const scrollTimes = parseInt(process.argv[3]) || 10;
   getXPost(process.argv[2], { scrollTimes })
     .then(result => {
       console.log('\n✨ 完成！');

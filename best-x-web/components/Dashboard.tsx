@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MAX_SCROLLS } from '@/lib/consts';
 
 // 任务接口
 interface Task {
@@ -113,7 +114,7 @@ export default function Dashboard({
               <input
                 type="range"
                 min="1"
-                max="10"
+                max={MAX_SCROLLS}
                 value={scrollTimes}
                 onChange={(e) => setScrollTimes(parseInt(e.target.value))}
                 className="w-full h-1.5 bg-gradient-to-r from-gray-200 to-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"

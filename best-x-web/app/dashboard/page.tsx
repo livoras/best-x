@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Dashboard from '@/components/Dashboard';
 import Link from 'next/link';
+import { DEFAULT_SCROLLS } from '@/lib/consts';
 
 // 任务接口
 interface Task {
@@ -55,7 +56,7 @@ interface QueueStatus {
 
 export default function DashboardPage() {
   const [url, setUrl] = useState('');
-  const [scrollTimes, setScrollTimes] = useState(3);
+  const [scrollTimes, setScrollTimes] = useState(DEFAULT_SCROLLS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   

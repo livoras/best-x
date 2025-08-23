@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { Tweet } from '@/types/tweet';
 import ResizablePane from '@/components/ResizablePane';
+import { DEFAULT_SCROLLS, MAX_SCROLLS } from '@/lib/consts';
 
 interface ExtractionRecord {
   id: number;
@@ -92,7 +93,7 @@ export default function Home() {
   // 快速提取模态框状态
   const [showQuickExtract, setShowQuickExtract] = useState(false);
   const [quickUrl, setQuickUrl] = useState('');
-  const [quickScrollTimes, setQuickScrollTimes] = useState(3);
+  const [quickScrollTimes, setQuickScrollTimes] = useState(DEFAULT_SCROLLS);
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickError, setQuickError] = useState('');
   
@@ -774,7 +775,7 @@ export default function Home() {
                 <input
                   type="range"
                   min="1"
-                  max="10"
+                  max={MAX_SCROLLS}
                   value={quickScrollTimes}
                   onChange={(e) => setQuickScrollTimes(parseInt(e.target.value))}
                   className="w-full h-2 bg-gradient-to-r from-gray-200 to-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"

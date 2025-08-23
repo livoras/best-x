@@ -1,5 +1,6 @@
 import { DB } from '../DB';
 import type { TweetResult, MediaItem } from '@/types/tweet';
+import { DEFAULT_SCROLLS } from '../consts';
 
 // 提取记录类型
 export interface ExtractionRecord {
@@ -62,7 +63,7 @@ export class ExtractionsModel {
   // 保存提取结果
   public saveExtraction(
     result: TweetResult, 
-    scrollTimes: number = 3, 
+    scrollTimes: number = DEFAULT_SCROLLS, 
     filteredCount: number = 0
   ): number {
     const mainTweet = result.tweets[0];

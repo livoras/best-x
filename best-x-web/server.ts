@@ -8,6 +8,7 @@ import { Migration } from './lib/Migration';
 import { migrations } from './lib/migrations';
 import { ExtractionsModel } from './lib/models/ExtractionsModel';
 import QueueModel from './lib/models/QueueModel';
+import { DEFAULT_SCROLLS } from './lib/consts';
 
 console.log('Starting server...');
 const app = express();
@@ -22,7 +23,7 @@ interface FetchTweetRequest {
 
 // 改造为入队操作（异步处理）
 app.post('/api/fetch-tweet', async (req: Request<{}, {}, FetchTweetRequest>, res: Response) => {
-  const { url, scrollTimes = 3 } = req.body;
+  const { url, scrollTimes = DEFAULT_SCROLLS } = req.body;
   
   if (!url) {
     return res.status(400).json({ error: '请提供推文URL' });
