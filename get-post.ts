@@ -256,18 +256,29 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
         viewCount = $analyticsLink.text() || viewCount;
       }
       
-      // 检测视频
-      const hasVideo = $article.find('img[src*="amplify_video_thumb"]').length > 0 
+      // 检测视频 - 检查 video 标签或带有视频缩略图的 img 标签
+      const $video = $article.find('video[poster]');
+      const hasVideo = $video.length > 0 
+                    || $article.find('img[src*="amplify_video_thumb"]').length > 0 
                     || $article.find('button[aria-label*="播放"]').length > 0;
       
       // 提取视频信息
       let videoInfo: { thumbnail: string } | null = null;
       if (hasVideo) {
-        const thumbnail = $article.find('img[src*="amplify_video_thumb"]').attr('src');
+        // 优先从 video 标签的 poster 属性获取缩略图
+        let thumbnail = $video.attr('poster') || '';
         
-        videoInfo = {
-          thumbnail: thumbnail || ''
-        };
+        // 如果没有 video 标签，尝试从 img 标签获取
+        if (!thumbnail) {
+          thumbnail = $article.find('img[src*="amplify_video_thumb"]').attr('src') || '';
+        }
+        
+        if (thumbnail) {
+          videoInfo = {
+            thumbnail: thumbnail
+          };
+          console.log(`  🎬 检测到视频，缩略图: ${thumbnail.substring(0, 80)}...`);
+        }
       }
       
       // 提取普通图片（排除视频缩略图）
