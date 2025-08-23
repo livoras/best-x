@@ -44,10 +44,18 @@ body {
 }
 
 /* 推文内容样式 */
+.tweet-content {
+  word-wrap: break-word;      /* 旧版浏览器兼容 */
+  overflow-wrap: break-word;   /* 标准属性 */
+  word-break: break-word;      /* 允许在单词内断行 */
+}
+
 .tweet-content a {
   color: rgb(29, 155, 240);
   text-decoration: none;
   cursor: pointer;
+  word-break: break-all;       /* 允许URL在任何位置断行 */
+  overflow-wrap: anywhere;     /* 最强制的断行策略 */
 }
 
 .tweet-content a:hover {
