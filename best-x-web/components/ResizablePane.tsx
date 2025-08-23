@@ -83,7 +83,7 @@ export default function ResizablePane({
       {/* 左侧面板 */}
       <div 
         style={{ width: `${leftWidth}px`, flexShrink: 0 }}
-        className="overflow-y-auto border-r border-gray-200"
+        className="overflow-y-auto overflow-x-hidden border-r border-gray-200"
       >
         {leftPane}
       </div>
@@ -104,7 +104,7 @@ export default function ResizablePane({
       </div>
 
       {/* 右侧面板 */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 min-w-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 min-w-0">
         {rightPane}
       </div>
     </div>
