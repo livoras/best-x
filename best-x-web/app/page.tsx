@@ -66,14 +66,15 @@ interface ArticleContent {
     handle: string;
     avatar: string;
   };
-  mergedContent: string;
+  tweets: Array<{
+    text: string;
+    media: {
+      images: string[];
+      video?: { thumbnail: string };
+    };
+    time: string;
+  }>;
   tweetCount: number;
-  firstTweetTime: string;
-  lastTweetTime?: string;
-  media: {
-    images: string[];
-    videos: Array<{ thumbnail: string }>;
-  };
   url: string;
 }
 
@@ -477,84 +478,77 @@ export default function Home() {
                         {articleContent.tweetCount} 条连续推文
                       </div>
                       <div className="text-xs text-gray-400">
-                        {articleContent.firstTweetTime}
-                        {articleContent.lastTweetTime && articleContent.lastTweetTime !== articleContent.firstTweetTime && 
-                          ` - ${articleContent.lastTweetTime}`}
+                        {articleContent.tweets[0]?.time}
+                        {articleContent.tweetCount > 1 && 
+                          articleContent.tweets[articleContent.tweetCount - 1]?.time !== articleContent.tweets[0]?.time && 
+                          ` - ${articleContent.tweets[articleContent.tweetCount - 1]?.time}`}
                       </div>
                     </div>
                   </div>
 
-                  {/* Merged Content */}
-                  <div className="prose prose-sm max-w-none">
-                    <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
-                      {articleContent.mergedContent}
-                    </div>
-                  </div>
-
-                  {/* Media Gallery */}
-                  {(articleContent.media.images.length > 0 || articleContent.media.videos.length > 0) && (
-                    <div className="mt-6 pt-4 border-t border-gray-100">
-                      <h3 className="text-sm font-medium text-gray-700 mb-3">媒体内容</h3>
-                      
-                      {/* Images Grid */}
-                      {articleContent.media.images.length > 0 && (
-                        <div className={`grid gap-2 mb-3 ${
-                          articleContent.media.images.length === 1 
-                            ? 'grid-cols-1' 
-                            : articleContent.media.images.length <= 4 
-                              ? 'grid-cols-2' 
-                              : 'grid-cols-3'
-                        }`}>
-                          {articleContent.media.images.map((url, index) => (
-                            <img
-                              key={`img-${index}`}
-                              src={url}
-                              alt={`Image ${index + 1}`}
-                              className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity object-cover"
-                              style={{ 
-                                maxHeight: articleContent.media.images.length === 1 ? '400px' : '200px' 
-                              }}
-                              onClick={() => window.open(url, '_blank')}
-                            />
-                          ))}
+                  {/* Tweet Content with Media */}
+                  <div className="space-y-6">
+                    {articleContent.tweets.map((tweet, index) => (
+                      <div key={index} className={index > 0 ? "pt-4 border-t border-gray-100" : ""}>
+                        {/* Tweet Text */}
+                        <div className="whitespace-pre-wrap text-gray-800 leading-relaxed mb-3">
+                          {tweet.text}
                         </div>
-                      )}
-                      
-                      {/* Videos Grid */}
-                      {articleContent.media.videos.length > 0 && (
-                        <div className={`grid gap-2 ${
-                          articleContent.media.videos.length === 1 
-                            ? 'grid-cols-1' 
-                            : 'grid-cols-2'
-                        }`}>
-                          {articleContent.media.videos.map((video, index) => (
-                            <div 
-                              key={`vid-${index}`}
-                              className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group"
-                              onClick={() => window.open(video.thumbnail, '_blank')}
-                            >
+                        
+                        {/* Tweet Images */}
+                        {tweet.media.images.length > 0 && (
+                          <div className={`grid gap-2 mb-3 ${
+                            tweet.media.images.length === 1 
+                              ? 'grid-cols-1' 
+                              : tweet.media.images.length <= 4 
+                                ? 'grid-cols-2' 
+                                : 'grid-cols-3'
+                          }`}>
+                            {tweet.media.images.map((url, imgIndex) => (
                               <img
-                                src={video.thumbnail}
-                                alt={`Video ${index + 1}`}
-                                className="w-full object-cover hover:opacity-90 transition-opacity"
+                                key={`tweet-${index}-img-${imgIndex}`}
+                                src={url}
+                                alt={`Tweet ${index + 1} Image ${imgIndex + 1}`}
+                                className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity object-cover"
                                 style={{ 
-                                  maxHeight: articleContent.media.videos.length === 1 ? '400px' : '200px' 
+                                  maxHeight: tweet.media.images.length === 1 ? '400px' : '200px' 
                                 }}
+                                onClick={() => window.open(url, '_blank')}
                               />
-                              {/* Play button overlay */}
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                                <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
-                                  <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z"/>
-                                  </svg>
-                                </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Tweet Video */}
+                        {tweet.media.video && (
+                          <div className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group mb-3"
+                               onClick={() => window.open(tweet.media.video!.thumbnail, '_blank')}>
+                            <img
+                              src={tweet.media.video.thumbnail}
+                              alt={`Tweet ${index + 1} Video`}
+                              className="w-full object-cover hover:opacity-90 transition-opacity"
+                              style={{ maxHeight: '400px' }}
+                            />
+                            {/* Play button overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                              <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
+                                <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z"/>
+                                </svg>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                          </div>
+                        )}
+                        
+                        {/* Time stamp for multiple tweets */}
+                        {articleContent.tweetCount > 1 && (
+                          <div className="text-xs text-gray-400 mt-2">
+                            {tweet.time}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
 
                   {/* Original Link */}
                   <div className="mt-6 pt-4 border-t border-gray-100">

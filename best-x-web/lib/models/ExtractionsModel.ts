@@ -227,14 +227,15 @@ export class ExtractionsModel {
       handle: string;
       avatar: string;
     };
-    mergedContent: string;
+    tweets: Array<{
+      text: string;
+      media: {
+        images: string[];
+        video?: { thumbnail: string };
+      };
+      time: string;
+    }>;
     tweetCount: number;
-    firstTweetTime: string;
-    lastTweetTime?: string;
-    media: {
-      images: string[];
-      videos: Array<{ thumbnail: string }>;
-    };
     url: string;
   } | null {
     // 获取完整的推文数据
@@ -263,25 +264,15 @@ export class ExtractionsModel {
       }
     }
 
-    // 合并连续推文的内容
-    const mergedContent = continuousTweets
-      .map(tweet => tweet.content.text)
-      .join('\n\n');
-
-    // 分别收集图片和视频
-    const images: string[] = [];
-    const videos: Array<{ thumbnail: string }> = [];
-    
-    continuousTweets.forEach(tweet => {
-      // 收集图片
-      if (tweet.media.images && tweet.media.images.length > 0) {
-        images.push(...tweet.media.images);
-      }
-      // 收集视频缩略图
-      if (tweet.media.video && tweet.media.video.thumbnail) {
-        videos.push({ thumbnail: tweet.media.video.thumbnail });
-      }
-    });
+    // 保留每条推文的独立结构
+    const mergedTweets = continuousTweets.map(tweet => ({
+      text: tweet.content.text,
+      media: {
+        images: tweet.media.images || [],
+        video: tweet.media.video ? { thumbnail: tweet.media.video.thumbnail } : undefined
+      },
+      time: tweet.time
+    }));
 
     return {
       author: {
@@ -289,16 +280,8 @@ export class ExtractionsModel {
         handle: firstAuthor.handle,
         avatar: firstAuthor.avatar
       },
-      mergedContent,
+      tweets: mergedTweets,
       tweetCount: continuousTweets.length,
-      firstTweetTime: firstTweet.time,
-      lastTweetTime: continuousTweets.length > 1 
-        ? continuousTweets[continuousTweets.length - 1].time 
-        : undefined,
-      media: {
-        images,
-        videos
-      },
       url: tweetResult.url
     };
   }
