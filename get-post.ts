@@ -28,9 +28,8 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     const seenTweets = new Set<string>();
     const allArticlesHtml: string[] = [];
     
-    // 用于检测推荐内容边界
-    let boundaryIndex = -1;
-    const boundaryTexts = ['发现更多', 'Discover more', '源自于整个 X', 'from across X'];
+    // 定义推荐内容分界线文本
+    const boundaryTexts = ['源自于整个 X', 'from across X', '发现更多', 'Discover more'];
     
     // 初次加载，保存主推文和初始内容
     console.log('📸 保存初始内容（包括主推文）...');
@@ -69,25 +68,46 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     
     let htmlFile = await client.pageToHtmlFile(pageId, false);
     let htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
-    let $ = cheerio.load(htmlContent);
     
-    // 全局检测：先找到分界线元素的位置
-    let allElements = $('*').toArray();
+    // 在文本层面查找并截断推荐内容
     for (const text of boundaryTexts) {
-      for (let i = 0; i < allElements.length; i++) {
-        const el = allElements[i];
-        const $el = $(el);
-        const ownText = $el.clone().children().remove().end().text().trim();
-        
-        if (ownText === text) {
-          boundaryIndex = i;
-          console.log(`  🎯 找到分界线: "${text}" (位置: ${i})`);
-          break;
+      const index = htmlContent.indexOf(text);
+      if (index !== -1) {
+        // 向前查找包含该文本的标签开始位置
+        let tagStart = index;
+        while (tagStart > 0 && htmlContent[tagStart] !== '<') {
+          tagStart--;
         }
+        
+        // 向后查找该标签的结束位置
+        let tagEnd = index;
+        let depth = 0;
+        while (tagEnd < htmlContent.length) {
+          if (htmlContent[tagEnd] === '<') {
+            if (htmlContent[tagEnd + 1] === '/') {
+              depth--;
+            } else if (htmlContent[tagEnd + 1] !== '!') {
+              depth++;
+            }
+          } else if (htmlContent[tagEnd] === '>') {
+            if (depth === 0) {
+              tagEnd++;
+              break;
+            }
+          }
+          tagEnd++;
+        }
+        
+        // 截断HTML
+        htmlContent = htmlContent.substring(0, tagStart);
+        console.log(`  ✂️ 已删除 "${text}" 之后的内容（从位置 ${tagStart} 开始）`);
+        break;
       }
-      if (boundaryIndex !== -1) break;
     }
     
+    let $ = cheerio.load(htmlContent);
+    
+    // 不再需要查找分界线，推荐内容已被截断
     $('article').each((i, el) => {
       const $article = $(el);
       
@@ -96,31 +116,12 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
         .filter((j, link) => $(link).text().startsWith('@'))
         .first().text();
       
-      // 检查article是否在分界线之后（推荐内容）
-      if (boundaryIndex !== -1) {
-        const articleIndex = allElements.indexOf(el);
-        if (articleIndex > boundaryIndex) {
-          console.log(`  ⚠️  跳过推荐内容: ${handle}`);
-          return;
-        }
-      }
+      // 不需要检查，所有article都是真实评论
       
       // 提取状态链接作为唯一标识
       const statusLinks = $article.find('a[href*="/status/"]').map((j, link) => $(link).attr('href')).get();
       const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
       
-      // 调试：记录所有找到的链接
-      if (statusLinks.length > 0) {
-        console.log(`    🔍 找到 ${statusLinks.length} 个status链接:`, statusLinks.slice(0, 3));
-      } else {
-        // 提取文本片段用于识别
-        const textPreview = $article.find('[data-testid="tweetText"]').text().substring(0, 50);
-        console.log(`    ⚠️  未找到status链接的article，文本预览: "${textPreview}..."`);
-        
-        // 尝试其他方式获取唯一标识
-        const allLinks = $article.find('a[href]').map((j, link) => $(link).attr('href')).get();
-        console.log(`    🔗 该article的所有链接:`, allLinks.slice(0, 5));
-      }
       
       if (mainStatusLink && !seenTweets.has(mainStatusLink)) {
         seenTweets.add(mainStatusLink);
@@ -144,18 +145,39 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       // 记录本次滚动前的推文数量
       const tweetsCountBefore = seenTweets.size;
       
-      // 执行2次 PageDown 作为一次滚动
+      // 执行3次 PageDown 作为一次滚动
       await client.browserPressKey(pageId, 'PageDown', undefined, 300);
       await client.browserPressKey(pageId, 'PageDown', undefined, 300);
+      await client.browserPressKey(pageId, 'PageDown', undefined, 300);
+      
       await client.waitForTimeout(pageId, 500);
       
       // 每次滚动后都抓取当前的articles
       htmlFile = await client.pageToHtmlFile(pageId, false);
       htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
+      
+      // 在文本层面截断推荐内容
+      for (const text of boundaryTexts) {
+        const index = htmlContent.indexOf(text);
+        if (index !== -1) {
+          let tagStart = index;
+          while (tagStart > 0 && htmlContent[tagStart] !== '<') {
+            tagStart--;
+          }
+          htmlContent = htmlContent.substring(0, tagStart);
+          console.log(`    ✂️ 已删除 "${text}" 之后的内容`);
+          break;
+        }
+      }
+      
       $ = cheerio.load(htmlContent);
       
       console.log(`  📜 第 ${i + 1} 次滚动后...`);
-      $('article').each((j, el) => {
+      const articlesInDom = $('article');
+      
+      let processedInLoop = 0;
+      articlesInDom.each((j, el) => {
+        processedInLoop++;
         const $article = $(el);
         
         // 提取handle作为标识
@@ -163,35 +185,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
           .filter((k, link) => $(link).text().startsWith('@'))
           .first().text();
         
-        // 重新检测分界线（因为DOM可能已更新）
-        if (boundaryIndex === -1) {
-          const currentElements = $('*').toArray();
-          for (const text of boundaryTexts) {
-            for (let k = 0; k < currentElements.length; k++) {
-              const el = currentElements[k];
-              const $el = $(el);
-              const ownText = $el.clone().children().remove().end().text().trim();
-              
-              if (ownText === text) {
-                boundaryIndex = k;
-                console.log(`    🎯 [滚动检测] 找到分界线: "${text}" (位置: ${k})`);
-                break;
-              }
-            }
-            if (boundaryIndex !== -1) break;
-          }
-        }
-        
-        // 检查article是否在分界线之后
-        if (boundaryIndex !== -1) {
-          const currentElements = $('*').toArray();
-          const articleIndex = currentElements.indexOf(el);
-          if (articleIndex > boundaryIndex) {
-            console.log(`    ⚠️  跳过推荐内容: ${handle}`);
-            filteredCount++;
-            return;
-          }
-        }
+        // 不需要检测分界线，推荐内容已被截断
         
         const statusLinks = $article.find('a[href*="/status/"]').map((k, link) => $(link).attr('href')).get();
         const mainStatusLink = statusLinks.find(link => !link?.includes('/photo/') && !link?.includes('/analytics')) || statusLinks[0];
@@ -222,6 +216,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
           console.log(`    ⏭️  跳过重复: ${mainStatusLink}`);
         }
       });
+      
       
       // 检查本次滚动是否有新推文
       const tweetsCountAfter = seenTweets.size;
@@ -442,6 +437,7 @@ if (process.argv[2]) {
       const dataFile = `/tmp/tweet-data-${Date.now()}.json`;
       fs.writeFileSync(dataFile, JSON.stringify(result, null, 2));
       console.log(`\n💾 完整数据已保存到: ${dataFile}`);
+      process.exit(0); // 明确退出
     })
     .catch(error => {
       console.error('错误:', error.message);
