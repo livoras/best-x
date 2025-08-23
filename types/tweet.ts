@@ -19,9 +19,9 @@ export interface Tweet {
   // 媒体内容
   media: {
     images: string[];       // 图片URL数组
-    video?: {               // 视频信息（可选）
+    videos: Array<{         // 视频信息数组（支持多个视频）
       thumbnail: string;    // 视频缩略图
-    } | null;
+    }>;
   };
   
   // Twitter Card（链接预览卡片）

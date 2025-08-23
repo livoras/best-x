@@ -231,7 +231,7 @@ export class ExtractionsModel {
       text: string;
       media: {
         images: string[];
-        video?: { thumbnail: string };
+        videos: Array<{ thumbnail: string }>;
       };
       card?: {
         url: string;
@@ -276,7 +276,7 @@ export class ExtractionsModel {
       text: tweet.content.text,
       media: {
         images: tweet.media.images || [],
-        video: tweet.media.video ? { thumbnail: tweet.media.video.thumbnail } : undefined
+        videos: tweet.media.videos || []
       },
       card: tweet.card || null,
       time: tweet.time

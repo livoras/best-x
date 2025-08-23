@@ -70,7 +70,7 @@ interface ArticleContent {
     text: string;
     media: {
       images: string[];
-      video?: { thumbnail: string };
+      videos: Array<{ thumbnail: string }>;
     };
     time: string;
   }>;
@@ -365,21 +365,31 @@ export default function Home() {
                               </div>
                             )}
                             
-                            {tweet.media.video && (
-                              <div className="mt-3 relative rounded-2xl overflow-hidden border border-gray-200 group shadow-md">
-                                <img 
-                                  src={tweet.media.video.thumbnail} 
-                                  alt="Video"
-                                  className="w-full"
-                                  style={{ maxHeight: '500px', objectFit: 'cover' }}
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
-                                  <div className="bg-white/90 backdrop-blur-sm rounded-full p-4 group-hover:scale-110 transition-transform shadow-xl">
-                                    <svg className="w-10 h-10 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M8 5v14l11-7z"/>
-                                    </svg>
+                            {/* Tweet Videos */}
+                            {tweet.media.videos && tweet.media.videos.length > 0 && (
+                              <div className={`mt-3 grid gap-2 ${
+                                tweet.media.videos.length === 1 ? 'grid-cols-1' :
+                                tweet.media.videos.length === 2 ? 'grid-cols-2' :
+                                tweet.media.videos.length === 3 ? 'grid-cols-2' :
+                                'grid-cols-2'
+                              }`}>
+                                {tweet.media.videos.map((video, idx) => (
+                                  <div key={idx} className="relative rounded-2xl overflow-hidden border border-gray-200 group shadow-md">
+                                    <img 
+                                      src={video.thumbnail} 
+                                      alt={`Video ${idx + 1}`}
+                                      className="w-full"
+                                      style={{ maxHeight: tweet.media.videos.length === 1 ? '500px' : '250px', objectFit: 'cover' }}
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-xl">
+                                        <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
+                                          <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
+                                ))}
                               </div>
                             )}
                             
@@ -553,24 +563,33 @@ export default function Home() {
                           </div>
                         )}
                         
-                        {/* Tweet Video */}
-                        {tweet.media.video && (
-                          <div className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group mb-3"
-                               onClick={() => window.open(tweet.media.video!.thumbnail, '_blank')}>
-                            <img
-                              src={tweet.media.video.thumbnail}
-                              alt={`Tweet ${index + 1} Video`}
-                              className="w-full object-cover hover:opacity-90 transition-opacity"
-                              style={{ maxHeight: '400px' }}
-                            />
-                            {/* Play button overlay */}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                              <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
-                                <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M8 5v14l11-7z"/>
-                                </svg>
+                        {/* Tweet Videos */}
+                        {tweet.media.videos && tweet.media.videos.length > 0 && (
+                          <div className={`mb-3 grid gap-2 ${
+                            tweet.media.videos.length === 1 ? 'grid-cols-1' :
+                            tweet.media.videos.length === 2 ? 'grid-cols-2' :
+                            tweet.media.videos.length === 3 ? 'grid-cols-2' :
+                            'grid-cols-2'
+                          }`}>
+                            {tweet.media.videos.map((video, vidIdx) => (
+                              <div key={vidIdx} className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group"
+                                   onClick={() => window.open(video.thumbnail, '_blank')}>
+                                <img
+                                  src={video.thumbnail}
+                                  alt={`Tweet ${index + 1} Video ${vidIdx + 1}`}
+                                  className="w-full object-cover hover:opacity-90 transition-opacity"
+                                  style={{ maxHeight: tweet.media.videos.length === 1 ? '400px' : '200px' }}
+                                />
+                                {/* Play button overlay */}
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                                  <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
+                                    <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
+                            ))}
                           </div>
                         )}
                         
