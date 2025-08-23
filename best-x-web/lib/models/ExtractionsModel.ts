@@ -219,4 +219,74 @@ export class ExtractionsModel {
     `;
     return ExtractionsModel.db.query<ExtractionRecord>(sql, [limit]);
   }
+
+  // 获取连续同作者推文合并的文章内容
+  public getPostContentByTweet(extractionId: number): {
+    author: {
+      name: string;
+      handle: string;
+      avatar: string;
+    };
+    mergedContent: string;
+    tweetCount: number;
+    firstTweetTime: string;
+    lastTweetTime?: string;
+    mediaUrls: string[];
+    url: string;
+  } | null {
+    // 获取完整的推文数据
+    const tweetResult = this.getExtraction(extractionId);
+    if (!tweetResult || !tweetResult.tweets || tweetResult.tweets.length === 0) {
+      return null;
+    }
+
+    const tweets = tweetResult.tweets;
+    const firstTweet = tweets[0];
+    const firstAuthor = firstTweet.author;
+
+    // 找出从开头开始连续的同一作者的推文
+    let continuousTweets = [firstTweet];
+    let lastContinuousIndex = 0;
+    
+    for (let i = 1; i < tweets.length; i++) {
+      const currentTweet = tweets[i];
+      // 检查是否为同一作者
+      if (currentTweet.author.handle === firstAuthor.handle) {
+        continuousTweets.push(currentTweet);
+        lastContinuousIndex = i;
+      } else {
+        // 遇到不同作者，停止
+        break;
+      }
+    }
+
+    // 合并连续推文的内容
+    const mergedContent = continuousTweets
+      .map(tweet => tweet.content.text)
+      .join('\n\n');
+
+    // 收集所有媒体URL
+    const mediaUrls: string[] = [];
+    continuousTweets.forEach(tweet => {
+      if (tweet.media.images && tweet.media.images.length > 0) {
+        mediaUrls.push(...tweet.media.images);
+      }
+    });
+
+    return {
+      author: {
+        name: firstAuthor.name,
+        handle: firstAuthor.handle,
+        avatar: firstAuthor.avatar
+      },
+      mergedContent,
+      tweetCount: continuousTweets.length,
+      firstTweetTime: firstTweet.time,
+      lastTweetTime: continuousTweets.length > 1 
+        ? continuousTweets[continuousTweets.length - 1].time 
+        : undefined,
+      mediaUrls,
+      url: tweetResult.url
+    };
+  }
 }

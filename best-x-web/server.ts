@@ -132,6 +132,23 @@ app.get('/api/extractions/:id', (req: Request, res: Response) => {
   }
 });
 
+// 获取合并的文章内容（连续同作者推文）
+app.get('/api/extractions/:id/article', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const article = extractionsModel.getPostContentByTweet(id);
+    
+    if (!article) {
+      return res.status(404).json({ error: '记录不存在或无法生成文章' });
+    }
+    
+    res.json(article);
+  } catch (error: any) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message || '获取文章内容失败' });
+  }
+});
+
 // 删除提取记录
 app.delete('/api/extractions/:id', (req: Request, res: Response) => {
   try {
@@ -316,14 +333,15 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`✅ 服务器运行在 http://localhost:${PORT}`);
       console.log('📝 API 端点:');
-      console.log('  - POST   /api/fetch-tweet      添加提取任务');
-      console.log('  - GET    /api/queue/status     获取队列状态');
-      console.log('  - GET    /api/task/:id         查询任务详情');
-      console.log('  - DELETE /api/task/:id         取消任务');
-      console.log('  - GET    /api/extractions      获取历史');
-      console.log('  - GET    /api/extractions/:id  获取详情');
-      console.log('  - DELETE /api/extractions/:id  删除记录');
-      console.log('  - GET    /api/search           搜索功能');
+      console.log('  - POST   /api/fetch-tweet             添加提取任务');
+      console.log('  - GET    /api/queue/status            获取队列状态');
+      console.log('  - GET    /api/task/:id                查询任务详情');
+      console.log('  - DELETE /api/task/:id                取消任务');
+      console.log('  - GET    /api/extractions             获取历史');
+      console.log('  - GET    /api/extractions/:id         获取详情');
+      console.log('  - GET    /api/extractions/:id/article 获取合并文章');
+      console.log('  - DELETE /api/extractions/:id         删除记录');
+      console.log('  - GET    /api/search                  搜索功能');
     });
   } catch (error) {
     console.error('❌ 服务器启动失败:', error);

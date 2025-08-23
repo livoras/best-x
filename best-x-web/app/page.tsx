@@ -60,6 +60,20 @@ interface QueueStatus {
   allTasks: Task[];
 }
 
+interface ArticleContent {
+  author: {
+    name: string;
+    handle: string;
+    avatar: string;
+  };
+  mergedContent: string;
+  tweetCount: number;
+  firstTweetTime: string;
+  lastTweetTime?: string;
+  mediaUrls: string[];
+  url: string;
+}
+
 export default function Home() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [history, setHistory] = useState<ExtractionRecord[]>([]);
@@ -67,6 +81,8 @@ export default function Home() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
+  const [articleContent, setArticleContent] = useState<ArticleContent | null>(null);
+  const [loadingArticle, setLoadingArticle] = useState(false);
   
   // 队列状态 - 仅用于检测新任务完成
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({
@@ -94,23 +110,38 @@ export default function Home() {
   // 加载历史记录的推文
   const loadHistoryItem = async (id: number) => {
     setLoadingHistory(true);
+    setLoadingArticle(true);
     setError('');
     setSelectedHistoryId(id);
     
     try {
-      const res = await fetch(`http://localhost:3001/api/extractions/${id}`);
-      const data = await res.json();
+      // 并行请求推文数据和文章内容
+      const [tweetsRes, articleRes] = await Promise.all([
+        fetch(`http://localhost:3001/api/extractions/${id}`),
+        fetch(`http://localhost:3001/api/extractions/${id}/article`)
+      ]);
       
-      if (!res.ok) {
+      const tweetsData = await tweetsRes.json();
+      const articleData = await articleRes.json();
+      
+      if (!tweetsRes.ok) {
         throw new Error('加载历史记录失败');
       }
       
-      setTweets(data.tweets || []);
-      setUrl(data.url || '');
+      setTweets(tweetsData.tweets || []);
+      setUrl(tweetsData.url || '');
+      
+      if (articleRes.ok) {
+        setArticleContent(articleData);
+      } else {
+        setArticleContent(null);
+      }
     } catch (err: any) {
       setError(err.message || '加载历史记录失败');
+      setArticleContent(null);
     } finally {
       setLoadingHistory(false);
+      setLoadingArticle(false);
     }
   };
 
@@ -417,27 +448,101 @@ export default function Home() {
             </>
           }
           rightPane={
-            <div className="p-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  快速操作
-                </h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  访问控制台提取新推文
-                </p>
-                <Link 
-                  href="/dashboard" 
-                  className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
-                >
-                  前往控制台
-                  <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <div className="p-6 h-full overflow-y-auto">
+              {loadingArticle ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-500">加载文章内容...</p>
+                  </div>
+                </div>
+              ) : articleContent ? (
+                <article className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  {/* Author Header */}
+                  <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                    <img
+                      src={articleContent.author.avatar}
+                      alt={articleContent.author.name}
+                      className="w-12 h-12 rounded-full"
+                    />
+                    <div>
+                      <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
+                      <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <div className="text-sm text-gray-500">
+                        {articleContent.tweetCount} 条连续推文
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {articleContent.firstTweetTime}
+                        {articleContent.lastTweetTime && articleContent.lastTweetTime !== articleContent.firstTweetTime && 
+                          ` - ${articleContent.lastTweetTime}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Merged Content */}
+                  <div className="prose prose-sm max-w-none">
+                    <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                      {articleContent.mergedContent}
+                    </div>
+                  </div>
+
+                  {/* Media Gallery */}
+                  {articleContent.mediaUrls.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-gray-100">
+                      <h3 className="text-sm font-medium text-gray-700 mb-3">媒体内容</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {articleContent.mediaUrls.map((url, index) => (
+                          <img
+                            key={index}
+                            src={url}
+                            alt={`Media ${index + 1}`}
+                            className="rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(url, '_blank')}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Original Link */}
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <a
+                      href={articleContent.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-sm text-blue-500 hover:text-blue-600 transition-colors"
+                    >
+                      查看原始推文
+                      <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                </article>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h15m0 0l-3-3m3 3l-3 3m-13-3a6 6 0 1112 0 6 6 0 01-12 0z" />
                   </svg>
-                </Link>
-              </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    文章视图
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    选择左侧历史记录，查看连续推文的合并内容
+                  </p>
+                  <Link 
+                    href="/dashboard" 
+                    className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+                  >
+                    前往控制台
+                    <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              )}
             </div>
           }
           defaultLeftWidth={600}
