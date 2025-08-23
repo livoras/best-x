@@ -1,5 +1,5 @@
 import { DB } from '../DB';
-import type { TweetResult } from '@/types/tweet';
+import type { TweetResult, MediaItem } from '@/types/tweet';
 
 // 提取记录类型
 export interface ExtractionRecord {
@@ -230,8 +230,7 @@ export class ExtractionsModel {
     tweets: Array<{
       text: string;
       media: {
-        images: string[];
-        videos: Array<{ thumbnail: string }>;
+        items: MediaItem[];  // 按原始顺序的媒体项
       };
       card?: {
         url: string;
@@ -275,8 +274,7 @@ export class ExtractionsModel {
     const mergedTweets = continuousTweets.map(tweet => ({
       text: tweet.content.text,
       media: {
-        images: tweet.media.images || [],
-        videos: tweet.media.videos || []
+        items: tweet.media.items || []  // 保留原始顺序的媒体项
       },
       card: tweet.card || null,
       time: tweet.time

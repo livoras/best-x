@@ -87,6 +87,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [articleContent, setArticleContent] = useState<ArticleContent | null>(null);
   const [loadingArticle, setLoadingArticle] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   // 队列状态 - 仅用于检测新任务完成
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({
@@ -346,49 +347,42 @@ export default function Home() {
                               <span className="text-blue-500 ml-1 hover:underline cursor-pointer">Show more</span>
                             )}
                             
-                            {/* Media */}
-                            {tweet.media.images.length > 0 && (
-                              <div className={`mt-3 grid gap-1 rounded-2xl overflow-hidden border border-gray-200 ${
-                                tweet.media.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-                              }`}>
-                                {tweet.media.images.map((img, i) => (
-                                  <img 
-                                    key={i}
-                                    src={img} 
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    style={{ 
-                                      maxHeight: tweet.media.images.length === 1 ? '500px' : '280px' 
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            
-                            {/* Tweet Videos */}
-                            {tweet.media.videos && tweet.media.videos.length > 0 && (
+                            {/* Media - 使用items数组按原始顺序渲染 */}
+                            {tweet.media.items && tweet.media.items.length > 0 && (
                               <div className={`mt-3 grid gap-2 ${
-                                tweet.media.videos.length === 1 ? 'grid-cols-1' :
-                                tweet.media.videos.length === 2 ? 'grid-cols-2' :
-                                tweet.media.videos.length === 3 ? 'grid-cols-2' :
+                                tweet.media.items.length === 1 ? 'grid-cols-1' :
+                                tweet.media.items.length === 2 ? 'grid-cols-2' :
+                                tweet.media.items.length === 3 ? 'grid-cols-2' :
                                 'grid-cols-2'
                               }`}>
-                                {tweet.media.videos.map((video, idx) => (
-                                  <div key={idx} className="relative rounded-2xl overflow-hidden border border-gray-200 group shadow-md">
+                                {tweet.media.items.map((item, idx) => (
+                                  item.type === 'image' ? (
                                     <img 
-                                      src={video.thumbnail} 
-                                      alt={`Video ${idx + 1}`}
-                                      className="w-full"
-                                      style={{ maxHeight: tweet.media.videos.length === 1 ? '500px' : '250px', objectFit: 'cover' }}
+                                      key={idx}
+                                      src={item.url} 
+                                      alt={`Image ${idx + 1}`}
+                                      className="w-full rounded-2xl border border-gray-200 object-cover"
+                                      style={{ 
+                                        maxHeight: tweet.media.items.length === 1 ? '500px' : '280px' 
+                                      }}
                                     />
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
-                                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-xl">
-                                        <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M8 5v14l11-7z"/>
-                                        </svg>
+                                  ) : (
+                                    <div key={idx} className="relative rounded-2xl overflow-hidden border border-gray-200 group shadow-md">
+                                      <img 
+                                        src={item.thumbnail} 
+                                        alt={`Video ${idx + 1}`}
+                                        className="w-full"
+                                        style={{ maxHeight: tweet.media.items.length === 1 ? '500px' : '250px', objectFit: 'cover' }}
+                                      />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                                        <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-xl">
+                                          <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                          </svg>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
+                                  )
                                 ))}
                               </div>
                             )}
@@ -539,56 +533,46 @@ export default function Home() {
                           dangerouslySetInnerHTML={{ __html: tweet.text }}
                         />
                         
-                        {/* Tweet Images */}
-                        {tweet.media.images.length > 0 && (
+                        {/* Tweet Media - 使用items数组按原始顺序渲染 */}
+                        {tweet.media.items && tweet.media.items.length > 0 && (
                           <div className={`grid gap-2 mb-3 ${
-                            tweet.media.images.length === 1 
+                            tweet.media.items.length === 1 
                               ? 'grid-cols-1' 
-                              : tweet.media.images.length <= 4 
+                              : tweet.media.items.length <= 4 
                                 ? 'grid-cols-2' 
                                 : 'grid-cols-3'
                           }`}>
-                            {tweet.media.images.map((url, imgIndex) => (
-                              <img
-                                key={`tweet-${index}-img-${imgIndex}`}
-                                src={url}
-                                alt={`Tweet ${index + 1} Image ${imgIndex + 1}`}
-                                className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity object-cover"
-                                style={{ 
-                                  maxHeight: tweet.media.images.length === 1 ? '400px' : '200px' 
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </div>
-                        )}
-                        
-                        {/* Tweet Videos */}
-                        {tweet.media.videos && tweet.media.videos.length > 0 && (
-                          <div className={`mb-3 grid gap-2 ${
-                            tweet.media.videos.length === 1 ? 'grid-cols-1' :
-                            tweet.media.videos.length === 2 ? 'grid-cols-2' :
-                            tweet.media.videos.length === 3 ? 'grid-cols-2' :
-                            'grid-cols-2'
-                          }`}>
-                            {tweet.media.videos.map((video, vidIdx) => (
-                              <div key={vidIdx} className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group"
-                                   onClick={() => window.open(video.thumbnail, '_blank')}>
+                            {tweet.media.items.map((item, itemIdx) => (
+                              item.type === 'image' ? (
                                 <img
-                                  src={video.thumbnail}
-                                  alt={`Tweet ${index + 1} Video ${vidIdx + 1}`}
-                                  className="w-full object-cover hover:opacity-90 transition-opacity"
-                                  style={{ maxHeight: tweet.media.videos.length === 1 ? '400px' : '200px' }}
+                                  key={`tweet-${index}-item-${itemIdx}`}
+                                  src={item.url}
+                                  alt={`Tweet ${index + 1} Image ${itemIdx + 1}`}
+                                  className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                                  style={{ 
+                                    maxHeight: tweet.media.items.length === 1 ? '400px' : '200px' 
+                                  }}
+                                  onClick={() => window.open(item.url, '_blank')}
                                 />
-                                {/* Play button overlay */}
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                                  <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
-                                    <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M8 5v14l11-7z"/>
-                                    </svg>
+                              ) : (
+                                <div key={`tweet-${index}-item-${itemIdx}`} className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group"
+                                     onClick={() => window.open(item.thumbnail, '_blank')}>
+                                  <img
+                                    src={item.thumbnail}
+                                    alt={`Tweet ${index + 1} Video ${itemIdx + 1}`}
+                                    className="w-full object-cover hover:opacity-90 transition-opacity"
+                                    style={{ maxHeight: tweet.media.items.length === 1 ? '400px' : '200px' }}
+                                  />
+                                  {/* Play button overlay */}
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
+                                      <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                      </svg>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
+                              )
                             ))}
                           </div>
                         )}
@@ -636,7 +620,7 @@ export default function Home() {
                   </div>
 
                   {/* Original Link */}
-                  <div className="mt-6 pt-4 border-t border-gray-100">
+                  <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-3">
                     <a
                       href={articleContent.url}
                       target="_blank"
@@ -648,6 +632,32 @@ export default function Home() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(articleContent.url);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className={`inline-flex items-center text-sm transition-colors ${
+                        copied ? 'text-green-600' : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {copied ? (
+                        <>
+                          <svg className="mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          已复制
+                        </>
+                      ) : (
+                        <>
+                          <svg className="mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          复制链接
+                        </>
+                      )}
+                    </button>
                   </div>
                 </article>
               ) : (

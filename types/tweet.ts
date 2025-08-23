@@ -2,6 +2,16 @@
  * X (Twitter) 推文数据结构定义
  */
 
+/**
+ * 媒体项接口 - 统一表示图片和视频
+ */
+export interface MediaItem {
+  type: 'image' | 'video';   // 媒体类型
+  url?: string;               // 图片URL（仅image类型）
+  thumbnail?: string;         // 视频缩略图（仅video类型）
+  position?: number;          // 原始DOM中的位置（用于排序）
+}
+
 export interface Tweet {
   // 作者信息
   author: {
@@ -18,10 +28,7 @@ export interface Tweet {
   
   // 媒体内容
   media: {
-    images: string[];       // 图片URL数组
-    videos: Array<{         // 视频信息数组（支持多个视频）
-      thumbnail: string;    // 视频缩略图
-    }>;
+    items: MediaItem[];     // 按原始顺序存储的媒体项
   };
   
   // Twitter Card（链接预览卡片）
