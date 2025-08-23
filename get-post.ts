@@ -1,7 +1,7 @@
 import { PlaywrightClient } from 'better-playwright-mcp';
 import * as cheerio from 'cheerio';
 import * as fs from 'fs';
-import type { Tweet, TweetResult } from './types/tweet';
+import type { Tweet, TweetResult, MediaItem } from './types/tweet';
 
 async function getXPost(url?: string, options?: { scrollTimes?: number }): Promise<TweetResult> {
   try {
@@ -256,38 +256,40 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
         viewCount = $analyticsLink.text() || viewCount;
       }
       
-      // 检测视频 - 检查 video 标签或带有视频缩略图的 img 标签
-      const $videoElements = $article.find('video[poster]');
-      const $videoImages = $article.find('img[src*="amplify_video_thumb"]');
+      // 按DOM顺序收集所有媒体项
+      const mediaItems: MediaItem[] = [];
+      const allMediaElements = $article.find('video[poster], img[src*="/media/"]');
       
-      // 提取所有视频信息
-      const videosInfo: Array<{ thumbnail: string }> = [];
-      
-      // 从 video 标签提取所有视频
-      $videoElements.each((i, el) => {
-        const poster = $(el).attr('poster');
-        if (poster) {
-          videosInfo.push({ thumbnail: poster });
-          console.log(`  🎬 检测到视频 ${i + 1}，缩略图: ${poster.substring(0, 80)}...`);
+      allMediaElements.each((idx, el) => {
+        const tagName = el.tagName.toLowerCase();
+        if (tagName === 'video') {
+          const poster = $(el).attr('poster');
+          if (poster) {
+            mediaItems.push({
+              type: 'video',
+              thumbnail: poster,
+              position: idx
+            });
+          }
+        } else if (tagName === 'img') {
+          const src = $(el).attr('src') || '';
+          if (src.includes('amplify_video_thumb')) {
+            // 视频缩略图（作为视频处理）
+            mediaItems.push({
+              type: 'video',
+              thumbnail: src,
+              position: idx
+            });
+          } else if (src.includes('/media/')) {
+            // 普通图片
+            mediaItems.push({
+              type: 'image',
+              url: src,
+              position: idx
+            });
+          }
         }
       });
-      
-      // 如果没有 video 标签，尝试从 img 标签获取
-      if (videosInfo.length === 0) {
-        $videoImages.each((i, el) => {
-          const src = $(el).attr('src');
-          if (src) {
-            videosInfo.push({ thumbnail: src });
-            console.log(`  🎬 检测到视频 ${i + 1}，缩略图: ${src.substring(0, 80)}...`);
-          }
-        });
-      }
-      
-      // 提取普通图片（排除视频缩略图）
-      const mediaImages = $imgs.filter((j, img) => {
-        const src = $(img).attr('src') || '';
-        return src.includes('/media/') && !src.includes('amplify_video_thumb');
-      }).map((j, img) => $(img).attr('src') || '').get();
       
       return {
         author: {
@@ -300,8 +302,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
           hasMore: $article.find('button:contains("显示更多")').length > 0
         },
         media: {
-          images: mediaImages,
-          videos: videosInfo
+          items: mediaItems        // 按原始顺序的媒体项
         },
         card: cardInfo,
         time: $article.find('time').text(),
