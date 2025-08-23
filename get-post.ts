@@ -28,9 +28,9 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     const seenTweets = new Set<string>();
     const allArticlesHtml: string[] = [];
     
-    // 记录推荐内容的handles，用于持久过滤
-    const recommendedHandles = new Set<string>();
-    let foundDiscoverMore = false;
+    // 用于检测推荐内容边界
+    let boundaryIndex = -1;
+    const boundaryTexts = ['发现更多', 'Discover more', '源自于整个 X', 'from across X'];
     
     // 初次加载，保存主推文和初始内容
     console.log('📸 保存初始内容（包括主推文）...');
@@ -71,6 +71,23 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     let htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
     let $ = cheerio.load(htmlContent);
     
+    // 全局检测：先找到分界线元素的位置
+    let allElements = $('*').toArray();
+    for (const text of boundaryTexts) {
+      for (let i = 0; i < allElements.length; i++) {
+        const el = allElements[i];
+        const $el = $(el);
+        const ownText = $el.clone().children().remove().end().text().trim();
+        
+        if (ownText === text) {
+          boundaryIndex = i;
+          console.log(`  🎯 找到分界线: "${text}" (位置: ${i})`);
+          break;
+        }
+      }
+      if (boundaryIndex !== -1) break;
+    }
+    
     $('article').each((i, el) => {
       const $article = $(el);
       
@@ -79,22 +96,13 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
         .filter((j, link) => $(link).text().startsWith('@'))
         .first().text();
       
-      // 检查是否到达"发现更多"区域
-      if (!foundDiscoverMore && $article.prevAll('div:has(h2:contains("发现更多"))').length > 0) {
-        foundDiscoverMore = true;
-      }
-      
-      // 如果已经发现"发现更多"，记录后续的所有handle为推荐内容
-      if (foundDiscoverMore && handle) {
-        recommendedHandles.add(handle);
-        console.log(`  ⚠️  跳过推荐内容: ${handle}`);
-        return;
-      }
-      
-      // 检查是否是之前记录的推荐内容
-      if (recommendedHandles.has(handle)) {
-        console.log(`  ⚠️  跳过推荐内容（已记录）: ${handle}`);
-        return;
+      // 检查article是否在分界线之后（推荐内容）
+      if (boundaryIndex !== -1) {
+        const articleIndex = allElements.indexOf(el);
+        if (articleIndex > boundaryIndex) {
+          console.log(`  ⚠️  跳过推荐内容: ${handle}`);
+          return;
+        }
       }
       
       // 提取状态链接作为唯一标识
@@ -155,27 +163,34 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
           .filter((k, link) => $(link).text().startsWith('@'))
           .first().text();
         
-        // 检查是否到达"发现更多"区域
-        if (!foundDiscoverMore && $article.prevAll('div:has(h2:contains("发现更多"))').length > 0) {
-          foundDiscoverMore = true;
-        }
-        
-        // 如果已经发现"发现更多"，记录后续的所有handle为推荐内容
-        if (foundDiscoverMore && handle) {
-          if (!recommendedHandles.has(handle)) {
-            recommendedHandles.add(handle);
-            const filteredText = $article.find('span').toArray().map(span => $(span).text()).find(text => text.length > 30)?.substring(0, 50) || '';
-            console.log(`    ⚠️  跳过推荐内容: ${handle} - ${filteredText}...`);
-            filteredCount++;
+        // 重新检测分界线（因为DOM可能已更新）
+        if (boundaryIndex === -1) {
+          const currentElements = $('*').toArray();
+          for (const text of boundaryTexts) {
+            for (let k = 0; k < currentElements.length; k++) {
+              const el = currentElements[k];
+              const $el = $(el);
+              const ownText = $el.clone().children().remove().end().text().trim();
+              
+              if (ownText === text) {
+                boundaryIndex = k;
+                console.log(`    🎯 [滚动检测] 找到分界线: "${text}" (位置: ${k})`);
+                break;
+              }
+            }
+            if (boundaryIndex !== -1) break;
           }
-          return;
         }
         
-        // 检查是否是之前记录的推荐内容
-        if (recommendedHandles.has(handle)) {
-          console.log(`    ⚠️  跳过推荐内容（已记录）: ${handle}`);
-          filteredCount++;
-          return;
+        // 检查article是否在分界线之后
+        if (boundaryIndex !== -1) {
+          const currentElements = $('*').toArray();
+          const articleIndex = currentElements.indexOf(el);
+          if (articleIndex > boundaryIndex) {
+            console.log(`    ⚠️  跳过推荐内容: ${handle}`);
+            filteredCount++;
+            return;
+          }
         }
         
         const statusLinks = $article.find('a[href*="/status/"]').map((k, link) => $(link).attr('href')).get();
