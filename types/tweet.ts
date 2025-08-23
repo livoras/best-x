@@ -24,6 +24,15 @@ export interface Tweet {
     } | null;
   };
   
+  // Twitter Card（链接预览卡片）
+  card?: {
+    url: string;            // 卡片链接
+    title: string;          // 卡片标题
+    description?: string;   // 卡片描述
+    image?: string;         // 预览图片URL
+    domain?: string;        // 来源域名
+  } | null;
+  
   // 时间
   time: string;             // 显示时间 (e.g., "8月1日" 或 "下午6:39 · 2025年8月1日")
   

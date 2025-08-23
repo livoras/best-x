@@ -180,6 +180,45 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
         ? tweetTextDiv.html()?.trim() || ''
         : '';
       
+      // 提取 Twitter Card 信息
+      let cardInfo: { url: string; title: string; description?: string; image?: string; domain?: string } | null = null;
+      const cardWrapper = $article.find('[data-testid="card.wrapper"]');
+      if (cardWrapper.length > 0) {
+        // 提取卡片链接
+        const cardLink = cardWrapper.find('a').first();
+        const cardUrl = cardLink.attr('href') || '';
+        
+        // 提取卡片图片
+        const cardImage = cardWrapper.find('img').first().attr('src') || '';
+        
+        // 提取卡片标题（通常在图片后的文本中）
+        const cardTitle = cardWrapper.find('span').first().text() || '';
+        
+        // 提取域名（来自 "来自 domain.com" 这样的文本）
+        const domainText = $article.find('a[href="' + cardUrl + '"]').last().text();
+        const domainMatch = domainText.match(/来自\s+(.+)/);
+        let domain = '';
+        if (domainMatch) {
+          domain = domainMatch[1];
+        } else if (cardUrl) {
+          try {
+            domain = new URL(cardUrl).hostname;
+          } catch (e) {
+            domain = '';
+          }
+        }
+        
+        if (cardUrl) {
+          cardInfo = {
+            url: cardUrl,
+            title: cardTitle,
+            image: cardImage,
+            domain: domain
+          };
+          console.log(`  📇 提取卡片: ${cardTitle.substring(0, 50)}... -> ${domain}`);
+        }
+      }
+      
       // 提取互动数据
       const $statsGroup = $article.find('div[role="group"]');
       const ariaLabel = $statsGroup.attr('aria-label') || '';
@@ -251,6 +290,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
           images: mediaImages,
           video: videoInfo
         },
+        card: cardInfo,
         time: $article.find('time').text(),
         statusLink: mainStatusLink,
         stats: {

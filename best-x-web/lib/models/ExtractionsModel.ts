@@ -233,6 +233,13 @@ export class ExtractionsModel {
         images: string[];
         video?: { thumbnail: string };
       };
+      card?: {
+        url: string;
+        title: string;
+        description?: string;
+        image?: string;
+        domain?: string;
+      } | null;
       time: string;
     }>;
     tweetCount: number;
@@ -271,6 +278,7 @@ export class ExtractionsModel {
         images: tweet.media.images || [],
         video: tweet.media.video ? { thumbnail: tweet.media.video.thumbnail } : undefined
       },
+      card: tweet.card || null,
       time: tweet.time
     }));
 

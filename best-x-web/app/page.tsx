@@ -383,6 +383,38 @@ export default function Home() {
                               </div>
                             )}
                             
+                            {/* Twitter Card */}
+                            {tweet.card && (
+                              <a 
+                                href={tweet.card.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-3 block border border-gray-200 rounded-xl overflow-hidden hover:bg-gray-50 transition-colors"
+                              >
+                                {tweet.card.image && (
+                                  <img 
+                                    src={tweet.card.image}
+                                    alt={tweet.card.title}
+                                    className="w-full object-cover"
+                                    style={{ maxHeight: '250px' }}
+                                  />
+                                )}
+                                <div className="p-3">
+                                  <div className="text-sm text-gray-500 mb-1">
+                                    {tweet.card.domain}
+                                  </div>
+                                  <div className="text-gray-900 font-medium line-clamp-2">
+                                    {tweet.card.title}
+                                  </div>
+                                  {tweet.card.description && (
+                                    <div className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                      {tweet.card.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </a>
+                            )}
+                            
                             {/* Stats */}
                             <div className="flex items-center gap-1 mt-3 -ml-2">
                               <button className="flex items-center gap-2 p-2 text-gray-500 hover:text-blue-500 group transition-colors">
@@ -540,6 +572,38 @@ export default function Home() {
                               </div>
                             </div>
                           </div>
+                        )}
+                        
+                        {/* Twitter Card */}
+                        {tweet.card && (
+                          <a 
+                            href={tweet.card.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block border border-gray-200 rounded-lg overflow-hidden hover:bg-gray-50 transition-colors mb-3"
+                          >
+                            {tweet.card.image && (
+                              <img 
+                                src={tweet.card.image}
+                                alt={tweet.card.title}
+                                className="w-full object-cover"
+                                style={{ maxHeight: '300px' }}
+                              />
+                            )}
+                            <div className="p-4">
+                              <div className="text-sm text-gray-500 mb-1">
+                                {tweet.card.domain}
+                              </div>
+                              <div className="text-gray-900 font-semibold text-lg">
+                                {tweet.card.title}
+                              </div>
+                              {tweet.card.description && (
+                                <div className="text-sm text-gray-600 mt-2">
+                                  {tweet.card.description}
+                                </div>
+                              )}
+                            </div>
+                          </a>
                         )}
                         
                         {/* Time stamp for multiple tweets */}
