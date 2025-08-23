@@ -96,6 +96,13 @@ export default function Home() {
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickError, setQuickError] = useState('');
   
+  // 辅助函数：去除HTML标签
+  const stripHtml = (html: string) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+  
   // 队列状态 - 仅用于检测新任务完成
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({
     summary: { pending: 0, processing: 0, completed: 0, failed: 0 },
@@ -298,7 +305,7 @@ export default function Home() {
                         <span className="text-gray-500 text-sm truncate">{item.author_handle}</span>
                       </div>
                       <div className="text-sm text-gray-600 line-clamp-2 mb-2">
-                        {item.main_tweet_text}
+                        {stripHtml(item.main_tweet_text)}
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-400">
                         <span>{item.tweet_count} 条推文</span>
