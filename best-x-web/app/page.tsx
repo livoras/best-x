@@ -97,6 +97,7 @@ export default function Home() {
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickError, setQuickError] = useState('');
   
+  
   // 辅助函数：去除HTML标签
   const stripHtml = (html: string) => {
     const tmp = document.createElement('div');
@@ -834,7 +835,7 @@ export default function Home() {
                     // 成功后关闭模态框并清空
                     setShowQuickExtract(false);
                     setQuickUrl('');
-                    setQuickScrollTimes(3);
+                    setQuickScrollTimes(DEFAULT_SCROLLS);
                     
                     // 刷新历史记录
                     fetchHistory();
