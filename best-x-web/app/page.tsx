@@ -70,7 +70,10 @@ interface ArticleContent {
   tweetCount: number;
   firstTweetTime: string;
   lastTweetTime?: string;
-  mediaUrls: string[];
+  media: {
+    images: string[];
+    videos: Array<{ thumbnail: string }>;
+  };
   url: string;
 }
 
@@ -489,20 +492,67 @@ export default function Home() {
                   </div>
 
                   {/* Media Gallery */}
-                  {articleContent.mediaUrls.length > 0 && (
+                  {(articleContent.media.images.length > 0 || articleContent.media.videos.length > 0) && (
                     <div className="mt-6 pt-4 border-t border-gray-100">
                       <h3 className="text-sm font-medium text-gray-700 mb-3">媒体内容</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        {articleContent.mediaUrls.map((url, index) => (
-                          <img
-                            key={index}
-                            src={url}
-                            alt={`Media ${index + 1}`}
-                            className="rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => window.open(url, '_blank')}
-                          />
-                        ))}
-                      </div>
+                      
+                      {/* Images Grid */}
+                      {articleContent.media.images.length > 0 && (
+                        <div className={`grid gap-2 mb-3 ${
+                          articleContent.media.images.length === 1 
+                            ? 'grid-cols-1' 
+                            : articleContent.media.images.length <= 4 
+                              ? 'grid-cols-2' 
+                              : 'grid-cols-3'
+                        }`}>
+                          {articleContent.media.images.map((url, index) => (
+                            <img
+                              key={`img-${index}`}
+                              src={url}
+                              alt={`Image ${index + 1}`}
+                              className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                              style={{ 
+                                maxHeight: articleContent.media.images.length === 1 ? '400px' : '200px' 
+                              }}
+                              onClick={() => window.open(url, '_blank')}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Videos Grid */}
+                      {articleContent.media.videos.length > 0 && (
+                        <div className={`grid gap-2 ${
+                          articleContent.media.videos.length === 1 
+                            ? 'grid-cols-1' 
+                            : 'grid-cols-2'
+                        }`}>
+                          {articleContent.media.videos.map((video, index) => (
+                            <div 
+                              key={`vid-${index}`}
+                              className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group"
+                              onClick={() => window.open(video.thumbnail, '_blank')}
+                            >
+                              <img
+                                src={video.thumbnail}
+                                alt={`Video ${index + 1}`}
+                                className="w-full object-cover hover:opacity-90 transition-opacity"
+                                style={{ 
+                                  maxHeight: articleContent.media.videos.length === 1 ? '400px' : '200px' 
+                                }}
+                              />
+                              {/* Play button overlay */}
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                                <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
+                                  <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

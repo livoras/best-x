@@ -231,7 +231,10 @@ export class ExtractionsModel {
     tweetCount: number;
     firstTweetTime: string;
     lastTweetTime?: string;
-    mediaUrls: string[];
+    media: {
+      images: string[];
+      videos: Array<{ thumbnail: string }>;
+    };
     url: string;
   } | null {
     // 获取完整的推文数据
@@ -265,11 +268,18 @@ export class ExtractionsModel {
       .map(tweet => tweet.content.text)
       .join('\n\n');
 
-    // 收集所有媒体URL
-    const mediaUrls: string[] = [];
+    // 分别收集图片和视频
+    const images: string[] = [];
+    const videos: Array<{ thumbnail: string }> = [];
+    
     continuousTweets.forEach(tweet => {
+      // 收集图片
       if (tweet.media.images && tweet.media.images.length > 0) {
-        mediaUrls.push(...tweet.media.images);
+        images.push(...tweet.media.images);
+      }
+      // 收集视频缩略图
+      if (tweet.media.video && tweet.media.video.thumbnail) {
+        videos.push({ thumbnail: tweet.media.video.thumbnail });
       }
     });
 
@@ -285,7 +295,10 @@ export class ExtractionsModel {
       lastTweetTime: continuousTweets.length > 1 
         ? continuousTweets[continuousTweets.length - 1].time 
         : undefined,
-      mediaUrls,
+      media: {
+        images,
+        videos
+      },
       url: tweetResult.url
     };
   }
