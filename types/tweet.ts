@@ -12,7 +12,7 @@ export interface Tweet {
   
   // 内容信息
   content: {
-    text: string;           // 推文正文（包含emoji）
+    text: string;           // 推文正文HTML（保留链接、@提及、#标签等结构）
     hasMore: boolean;       // 是否有"显示更多"按钮（内容被截断）
   };
   

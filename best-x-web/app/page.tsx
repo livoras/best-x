@@ -338,12 +338,13 @@ export default function Home() {
                             </div>
                             
                             {/* Tweet content */}
-                            <div className="mt-1 text-gray-800 whitespace-pre-wrap break-words">
-                              {tweet.content.text}
-                              {tweet.content.hasMore && (
-                                <span className="text-blue-500 ml-1 hover:underline cursor-pointer">Show more</span>
-                              )}
-                            </div>
+                            <div 
+                              className="mt-1 text-gray-800 whitespace-pre-wrap break-words tweet-content"
+                              dangerouslySetInnerHTML={{ __html: tweet.content.text }}
+                            />
+                            {tweet.content.hasMore && (
+                              <span className="text-blue-500 ml-1 hover:underline cursor-pointer">Show more</span>
+                            )}
                             
                             {/* Media */}
                             {tweet.media.images.length > 0 && (
@@ -491,9 +492,10 @@ export default function Home() {
                     {articleContent.tweets.map((tweet, index) => (
                       <div key={index} className={index > 0 ? "pt-4 border-t border-gray-100" : ""}>
                         {/* Tweet Text */}
-                        <div className="whitespace-pre-wrap text-gray-800 leading-relaxed mb-3">
-                          {tweet.text}
-                        </div>
+                        <div 
+                          className="whitespace-pre-wrap text-gray-800 leading-relaxed mb-3 tweet-content"
+                          dangerouslySetInnerHTML={{ __html: tweet.text }}
+                        />
                         
                         {/* Tweet Images */}
                         {tweet.media.images.length > 0 && (

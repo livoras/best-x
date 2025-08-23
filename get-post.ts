@@ -174,10 +174,10 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       const $links = $article.find('a[href^="/"]');
       const $imgs = $article.find('img');
       
-      // 提取文本内容 - 使用 data-testid="tweetText" 选择器
+      // 提取文本内容 - 使用 data-testid="tweetText" 选择器，保留HTML结构
       const tweetTextDiv = $article.find('[data-testid="tweetText"]');
       const textContent = tweetTextDiv.length > 0 
-        ? tweetTextDiv.text().trim()
+        ? tweetTextDiv.html()?.trim() || ''
         : '';
       
       // 提取互动数据

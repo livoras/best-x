@@ -42,3 +42,22 @@ body {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: auto;
 }
+
+/* 推文内容样式 */
+.tweet-content a {
+  color: rgb(29, 155, 240);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tweet-content a:hover {
+  text-decoration: underline;
+}
+
+/* 保持推文内容中的换行 */
+.tweet-content img {
+  display: inline;
+  vertical-align: text-bottom;
+  max-height: 1.2em;
+  width: auto;
+}
