@@ -285,9 +285,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 使用可调节宽度的面板 */}
+        {/* 使用可调节宽度的面板 - 文章视图在左，推文列表在右 */}
         <ResizablePane
-          leftPane={
+          rightPane={
             <>
               {/* Empty State */}
               {tweets.length === 0 && !loadingHistory ? (
@@ -451,7 +451,7 @@ export default function Home() {
               ))}
             </>
           }
-          rightPane={
+          leftPane={
             <div className="p-6 h-full overflow-y-auto">
               {loadingArticle ? (
                 <div className="flex items-center justify-center h-full">
