@@ -46,6 +46,7 @@ export default function ResizablePane({
     setIsResizing(true);
   };
 
+
   useEffect(() => {
     if (!isResizing) return;
 
@@ -76,12 +77,12 @@ export default function ResizablePane({
   return (
     <div 
       ref={containerRef}
-      className="flex flex-1 relative"
+      className="flex flex-1 relative overflow-hidden"
       style={{ userSelect: isResizing ? 'none' : 'auto' }}
     >
       {/* 左侧面板 */}
       <div 
-        style={{ width: `${leftWidth}px` }}
+        style={{ width: `${leftWidth}px`, flexShrink: 0 }}
         className="overflow-y-auto border-r border-gray-200"
       >
         {leftPane}
@@ -103,7 +104,7 @@ export default function ResizablePane({
       </div>
 
       {/* 右侧面板 */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
+      <div className="flex-1 overflow-y-auto bg-gray-50 min-w-0">
         {rightPane}
       </div>
     </div>

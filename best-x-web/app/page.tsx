@@ -228,7 +228,7 @@ export default function Home() {
       {/* Main Layout with Sidebar */}
       <div className="flex h-[calc(100vh-52px)]">
         {/* Sidebar - History */}
-        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
           <div className="divide-y divide-gray-100">
             {history.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
