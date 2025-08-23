@@ -88,6 +88,13 @@ export default function Home() {
   const [articleContent, setArticleContent] = useState<ArticleContent | null>(null);
   const [loadingArticle, setLoadingArticle] = useState(false);
   
+  // 快速提取模态框状态
+  const [showQuickExtract, setShowQuickExtract] = useState(false);
+  const [quickUrl, setQuickUrl] = useState('');
+  const [quickScrollTimes, setQuickScrollTimes] = useState(3);
+  const [quickLoading, setQuickLoading] = useState(false);
+  const [quickError, setQuickError] = useState('');
+  
   // 队列状态 - 仅用于检测新任务完成
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({
     summary: { pending: 0, processing: 0, completed: 0, failed: 0 },
@@ -208,7 +215,7 @@ export default function Home() {
             <span className="text-gray-400">·</span>
             <p className="text-xs text-gray-600">第一手高质量信息</p>
           </div>
-          <nav className="flex gap-4">
+          <nav className="flex gap-4 items-center">
             <Link 
               href="/" 
               className="text-sm font-medium text-blue-600 border-b-2 border-blue-600 pb-0.5"
@@ -221,6 +228,16 @@ export default function Home() {
             >
               控制台
             </Link>
+            <div className="w-px h-5 bg-gray-300 mx-2"></div>
+            <button
+              onClick={() => setShowQuickExtract(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              快速提取
+            </button>
           </nav>
         </div>
       </div>
@@ -680,6 +697,147 @@ export default function Home() {
           storageKey="tweet-pane-width"
         />
       </div>
+      {/* 快速提取模态框 */}
+      {showQuickExtract && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            {/* 模态框头部 */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  快速提取
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowQuickExtract(false);
+                    setQuickUrl('');
+                    setQuickError('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            {/* 模态框内容 */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  推文链接
+                </label>
+                <input
+                  type="text"
+                  value={quickUrl}
+                  onChange={(e) => setQuickUrl(e.target.value)}
+                  placeholder="https://x.com/user/status/123456789"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  加载评论深度：<span className="text-blue-600 font-bold">{quickScrollTimes}</span> 次滚动
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={quickScrollTimes}
+                  onChange={(e) => setQuickScrollTimes(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gradient-to-r from-gray-200 to-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>少量评论</span>
+                  <span>更多评论</span>
+                </div>
+              </div>
+              
+              {quickError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm flex items-start gap-2">
+                  <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+                  </svg>
+                  {quickError}
+                </div>
+              )}
+            </div>
+            
+            {/* 模态框底部 */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowQuickExtract(false);
+                  setQuickUrl('');
+                  setQuickError('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  if (!quickUrl) {
+                    setQuickError('请输入推文链接');
+                    return;
+                  }
+                  
+                  setQuickLoading(true);
+                  setQuickError('');
+                  
+                  try {
+                    const res = await fetch('http://localhost:3001/api/fetch-tweet', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ url: quickUrl, scrollTimes: quickScrollTimes })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (!res.ok) {
+                      throw new Error(data.error || '提取失败');
+                    }
+                    
+                    // 成功后关闭模态框并清空
+                    setShowQuickExtract(false);
+                    setQuickUrl('');
+                    setQuickScrollTimes(3);
+                    
+                    // 刷新历史记录
+                    fetchHistory();
+                  } catch (err: any) {
+                    setQuickError(err.message || '提取失败，请重试');
+                  } finally {
+                    setQuickLoading(false);
+                  }
+                }}
+                disabled={quickLoading}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+                  quickLoading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
+              >
+                {quickLoading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    提取中...
+                  </span>
+                ) : '开始提取'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
