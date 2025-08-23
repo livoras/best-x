@@ -54,8 +54,15 @@ body {
   color: rgb(29, 155, 240);
   text-decoration: none;
   cursor: pointer;
-  word-break: break-all;       /* 允许URL在任何位置断行 */
-  overflow-wrap: anywhere;     /* 最强制的断行策略 */
+  /* 对 @mention 不应该强制断行 */
+  word-break: normal;          /* 改为正常断行 */
+  overflow-wrap: break-word;   /* 只在必要时断行 */
+}
+
+/* 仅对长URL使用强制断行 */
+.tweet-content a[href*="http"] {
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .tweet-content a:hover {
@@ -68,4 +75,14 @@ body {
   vertical-align: text-bottom;
   max-height: 1.2em;
   width: auto;
+}
+
+/* 修复 @mention 的 div 标签导致的换行问题 */
+.tweet-content div {
+  display: inline;
+}
+
+/* 更通用的选择器：所有以css-开头的div类 */
+.tweet-content div[class^="css-"] {
+  display: inline;
 }

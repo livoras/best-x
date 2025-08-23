@@ -227,13 +227,13 @@ export default function Home() {
           <nav className="flex gap-4 items-center">
             <Link 
               href="/" 
-              className="text-sm font-medium text-blue-600 border-b-2 border-blue-600 pb-0.5"
+              className="text-sm font-medium text-blue-600 flex items-center border-b-2 border-blue-600"
             >
               主页
             </Link>
             <Link 
               href="/dashboard" 
-              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1.5"
+              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1.5 border-b-2 border-transparent"
             >
               控制台
               {queueStatus.summary.processing > 0 && (

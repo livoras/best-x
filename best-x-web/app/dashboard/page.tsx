@@ -144,13 +144,13 @@ export default function DashboardPage() {
           <nav className="flex gap-4">
             <Link 
               href="/" 
-              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center border-b-2 border-transparent"
             >
               主页
             </Link>
             <Link 
               href="/dashboard" 
-              className="text-sm font-medium text-blue-600 border-b-2 border-blue-600 pb-0.5"
+              className="text-sm font-medium text-blue-600 flex items-center border-b-2 border-blue-600"
             >
               控制台
             </Link>
