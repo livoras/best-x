@@ -140,6 +140,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     const scrollTimes = options?.scrollTimes || 10;
     console.log(`🔄 滚动 ${scrollTimes} 次加载更多内容...`);
     let filteredCount = 0;
+    let noNewContentCount = 0; // 连续无新内容的次数
     
     for (let i = 0; i < scrollTimes; i++) {
       // 记录本次滚动前的推文数量
@@ -225,8 +226,16 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       console.log(`    📊 本次新增: ${newTweetsCount} 条推文`);
       
       if (newTweetsCount === 0) {
-        console.log(`  🛑 没有新推文，已到达底部，停止滚动`);
-        break;
+        noNewContentCount++;
+        console.log(`    ⚠️  本次无新推文（连续${noNewContentCount}次）`);
+        
+        if (noNewContentCount >= 2) {
+          console.log(`  🛑 连续2次没有新推文，已到达底部，停止滚动`);
+          break;
+        }
+      } else {
+        // 有新内容时重置计数器
+        noNewContentCount = 0;
       }
     }
     
