@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Tweet } from '@/types/tweet';
@@ -79,7 +80,16 @@ interface ArticleContent {
   url: string;
 }
 
-export default function Home() {
+interface PageProps {
+  params: Promise<{
+    slug?: string[];
+  }>;
+}
+
+export default function Home({ params: paramsPromise }: PageProps) {
+  const params = use(paramsPromise);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [history, setHistory] = useState<ExtractionRecord[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
@@ -128,12 +138,11 @@ export default function Home() {
     }
   };
 
-  // 加载历史记录的推文
-  const loadHistoryItem = async (id: number) => {
+  // 加载提取内容（不更新路由）
+  const loadExtractionContent = async (id: number) => {
     setLoadingHistory(true);
     setLoadingArticle(true);
     setError('');
-    setSelectedHistoryId(id);
     
     try {
       // 并行请求推文数据和文章内容
@@ -166,8 +175,57 @@ export default function Home() {
     }
   };
 
+  // 加载历史记录的推文（会更新路由）
+  const loadHistoryItem = async (id: number) => {
+    setSelectedHistoryId(id);
+    // 使用 window.history.pushState 避免页面重新加载
+    window.history.pushState({}, '', `/extraction/${id}`);
+    // 加载内容
+    await loadExtractionContent(id);
+  };
+
   // 使用 ref 追踪上一次的完成数量
   const previousCompletedRef = useRef<number>(0);
+
+  // 处理路由参数中的extraction ID
+  useEffect(() => {
+    // 检查是否是 /extraction/ID 路由
+    if (params.slug && params.slug[0] === 'extraction' && params.slug[1]) {
+      const id = parseInt(params.slug[1]);
+      if (!isNaN(id) && id !== selectedHistoryId && history.length > 0) {
+        // 检查这个ID是否存在于历史记录中
+        const exists = history.some(item => item.id === id);
+        if (exists) {
+          // 直接加载内容，不再调用loadHistoryItem以避免循环
+          setSelectedHistoryId(id);
+          loadExtractionContent(id);
+        }
+      }
+    }
+  }, [params.slug, history]);
+
+  // 处理浏览器前进/后退
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const match = path.match(/^\/extraction\/(\d+)$/);
+      if (match) {
+        const id = parseInt(match[1]);
+        if (!isNaN(id) && history.some(item => item.id === id)) {
+          setSelectedHistoryId(id);
+          loadExtractionContent(id);
+        }
+      } else if (path === '/') {
+        // 返回主页时清空选中状态
+        setSelectedHistoryId(null);
+        setTweets([]);
+        setArticleContent(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [history]);
 
   // 组件加载时获取历史记录和启动队列状态轮询
   useEffect(() => {
@@ -309,7 +367,7 @@ export default function Home() {
                       <div className="text-sm text-gray-600 line-clamp-2 mb-2">
                         {stripHtml(item.main_tweet_text)}
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-400">
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
                         <span>{item.tweet_count} 条推文</span>
                         <span>{new Date(item.extract_time).toLocaleDateString()}</span>
                       </div>
