@@ -1,7 +1,6 @@
 import { DB } from '../DB';
 import type { TweetResult, MediaItem } from '@/types/tweet';
 import { DEFAULT_SCROLLS } from '../consts';
-import TurndownService from 'turndown';
 
 // 提取记录类型
 export interface ExtractionRecord {
@@ -294,6 +293,88 @@ export class ExtractionsModel {
     };
   }
 
+  // 自定义 Twitter HTML 到 Markdown 转换器
+  private convertTwitterHtmlToMarkdown(html: string): string {
+    
+    // 1. 移除 HTML 标签但保留内容和结构
+    let text = html;
+    
+    // 处理表情符号图片
+    text = text.replace(/<img[^>]*alt="([^"]*)"[^>]*>/g, '$1');
+    
+    // 处理链接 - 保留 @提及和 #标签
+    text = text.replace(/<a[^>]*>(@[^<]+)<\/a>/g, '$1');
+    text = text.replace(/<a[^>]*>(#[^<]+)<\/a>/g, '$1');
+    
+    // 处理其他链接
+    text = text.replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]+)<\/a>/g, '[$2]($1)');
+    
+    // 移除所有其他 HTML 标签但保留内容
+    text = text.replace(/<[^>]+>/g, '');
+    
+    // 2. 处理 HTML 实体
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+    text = text.replace(/&quot;/g, '"');
+    text = text.replace(/&#39;/g, "'");
+    
+    // 3. 处理换行和列表
+    // 保留原始换行
+    const lines = text.split('\n');
+    
+    const processedLines = lines.map(line => {
+      const trimmedLine = line.trim();
+      
+      // 识别列表项（以 • 开头）
+      if (trimmedLine.startsWith('•')) {
+        // 转换为 Markdown 列表格式
+        return '- ' + trimmedLine.substring(1).trim();
+      }
+      
+      // 识别数字列表（如 "1. " 或 "1) "）
+      const numberedMatch = trimmedLine.match(/^(\d+)[.)]\s+(.+)/);
+      if (numberedMatch) {
+        return `${numberedMatch[1]}. ${numberedMatch[2]}`;
+      }
+      
+      return trimmedLine;
+    });
+    
+    // 4. 合并处理后的行
+    // 保留空行作为段落分隔
+    let result = '';
+    for (let i = 0; i < processedLines.length; i++) {
+      const line = processedLines[i];
+      const nextLine = processedLines[i + 1];
+      
+      if (line === '') {
+        // 空行保留为段落分隔
+        result += '\n\n';
+      } else if (line.startsWith('- ')) {
+        // 列表项
+        result += line;
+        // 如果下一行也是列表项，添加单个换行
+        if (nextLine && nextLine.startsWith('- ')) {
+          result += '\n';
+        } else {
+          result += '\n\n';
+        }
+      } else {
+        // 普通文本
+        result += line;
+        // 如果下一行不是空行且不是列表，添加两个空格（硬换行）
+        if (nextLine && nextLine !== '' && !nextLine.startsWith('- ')) {
+          result += '  \n';
+        } else if (nextLine) {
+          result += '\n';
+        }
+      }
+    }
+    
+    return result.trim();
+  }
+
   // 获取 Markdown 格式的文章内容
   public getPostContentAsMarkdown(extractionId: number): {
     markdown: string;
@@ -311,50 +392,49 @@ export class ExtractionsModel {
       return null;
     }
 
-    // 创建 Turndown 实例并配置
-    const turndownService = new TurndownService({
-      headingStyle: 'atx',
-      hr: '---',
-      bulletListMarker: '-',
-      codeBlockStyle: 'fenced',
-      emDelimiter: '*'
-    });
-
-    // 自定义规则：保留 Twitter 特有的格式
-    // 保留 @提及
-    turndownService.addRule('mentions', {
-      filter: function (node) {
-        return node.nodeName === 'A' && 
-               node.getAttribute('href')?.includes('/') &&
-               node.textContent?.startsWith('@');
-      },
-      replacement: function (content) {
-        return content; // 保持 @username 原样
-      }
-    });
-
-    // 保留 #标签
-    turndownService.addRule('hashtags', {
-      filter: function (node) {
-        return node.nodeName === 'A' && 
-               node.textContent?.startsWith('#');
-      },
-      replacement: function (content) {
-        return content; // 保持 #hashtag 原样
-      }
-    });
-
     // 转换每条推文并拼接
     const markdownParts: string[] = [];
     
     for (let i = 0; i < articleContent.tweets.length; i++) {
       const tweet = articleContent.tweets[i];
+      let tweetMarkdown = '';
       
-      // 转换 HTML 到 Markdown
-      const markdownText = turndownService.turndown(tweet.text);
+      // 1. 使用自定义转换器转换 HTML 文本到 Markdown
+      const markdownText = this.convertTwitterHtmlToMarkdown(tweet.text);
+      tweetMarkdown += markdownText;
+      
+      // 2. 添加媒体内容（图片和视频）
+      if (tweet.media && tweet.media.items && tweet.media.items.length > 0) {
+        tweetMarkdown += '\n\n';
+        for (const item of tweet.media.items) {
+          if (item.type === 'image') {
+            // 添加图片
+            tweetMarkdown += `![Image](${item.url})\n`;
+          } else if (item.type === 'video' && item.thumbnail) {
+            // 添加视频缩略图（因为视频本身无法在 Markdown 中直接播放）
+            tweetMarkdown += `![Video](${item.thumbnail})\n`;
+            tweetMarkdown += `*[视频内容]*\n`;
+          }
+        }
+      }
+      
+      // 3. 添加 Twitter Card（链接预览）
+      if (tweet.card) {
+        tweetMarkdown += '\n\n';
+        if (tweet.card.image) {
+          tweetMarkdown += `[![${tweet.card.title}](${tweet.card.image})](${tweet.card.url})\n`;
+        }
+        tweetMarkdown += `**[${tweet.card.title}](${tweet.card.url})**\n`;
+        if (tweet.card.description) {
+          tweetMarkdown += `${tweet.card.description}\n`;
+        }
+        if (tweet.card.domain) {
+          tweetMarkdown += `*${tweet.card.domain}*\n`;
+        }
+      }
       
       // 添加到数组
-      markdownParts.push(markdownText);
+      markdownParts.push(tweetMarkdown);
       
       // 如果不是最后一条推文，添加分隔符
       if (i < articleContent.tweets.length - 1) {

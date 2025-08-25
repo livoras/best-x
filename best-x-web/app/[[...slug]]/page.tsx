@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import React, { useState, useEffect, useRef, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Tweet } from '@/types/tweet';
 import ResizablePane from '@/components/ResizablePane';
 import { DEFAULT_SCROLLS, MAX_SCROLLS } from '@/lib/consts';
+import ReactMarkdown from 'react-markdown';
 
 interface ExtractionRecord {
   id: number;
@@ -101,7 +102,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
   const [copied, setCopied] = useState(false);
   
   // Tab 切换和 Markdown 内容状态
-  const [activeTab, setActiveTab] = useState<'article' | 'markdown'>('article');
+  const [activeTab, setActiveTab] = useState<'article' | 'markdown' | 'rendered'>('article');
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [loadingMarkdown, setLoadingMarkdown] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
@@ -646,6 +647,19 @@ export default function Home({ params: paramsPromise }: PageProps) {
                   >
                     Markdown
                   </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('rendered');
+                      fetchMarkdownContent();
+                    }}
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                      activeTab === 'rendered'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    渲染视图
+                  </button>
                 </div>
               )}
               
@@ -822,7 +836,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     </button>
                   </div>
                 </article>
-                  ) : (
+                  ) : activeTab === 'markdown' ? (
                     // Markdown 视图
                     <div className="bg-white rounded-xl border border-gray-100 p-6">
                       {/* Header with copy button - 与文章视图保持一致 */}
@@ -882,6 +896,214 @@ export default function Home({ params: paramsPromise }: PageProps) {
                         <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800 leading-relaxed overflow-x-auto">
                           {markdownContent}
                         </pre>
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          加载 Markdown 内容中...
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    // 渲染视图
+                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                      {/* Header - 与其他视图保持一致 */}
+                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                        <img
+                          src={articleContent.author.avatar}
+                          alt={articleContent.author.name}
+                          className="w-12 h-12 rounded-full"
+                        />
+                        <div>
+                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
+                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
+                        </div>
+                        <div className="ml-auto text-right">
+                          <div className="text-sm text-gray-500">
+                            {articleContent.tweetCount} 条连续推文
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {articleContent.tweets[0]?.time}
+                            {articleContent.tweetCount > 1 && 
+                              articleContent.tweets[articleContent.tweetCount - 1]?.time !== articleContent.tweets[0]?.time && 
+                              ` - ${articleContent.tweets[articleContent.tweetCount - 1]?.time}`}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Rendered Markdown Content */}
+                      {loadingMarkdown ? (
+                        <div className="flex items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        </div>
+                      ) : markdownContent ? (
+                        <div className="markdown-content">
+                          <ReactMarkdown
+                            components={{
+                              // 自定义段落样式 - 处理换行
+                              p: ({children}) => {
+                                // 处理包含换行的文本
+                                const processChildren = (child: any): any => {
+                                  if (typeof child === 'string') {
+                                    // 将双换行转换为分段，单换行保留为<br/>
+                                    const lines = child.split('\n');
+                                    return lines.map((line, i) => (
+                                      <React.Fragment key={i}>
+                                        {line}
+                                        {i < lines.length - 1 && <br />}
+                                      </React.Fragment>
+                                    ));
+                                  }
+                                  if (Array.isArray(child)) {
+                                    return child.map((c, i) => (
+                                      <React.Fragment key={i}>{processChildren(c)}</React.Fragment>
+                                    ));
+                                  }
+                                  return child;
+                                };
+                                
+                                return (
+                                  <p className="text-gray-800 leading-relaxed mb-6 text-base whitespace-pre-line">
+                                    {processChildren(children)}
+                                  </p>
+                                );
+                              },
+                              // 自定义图片样式
+                              img: ({src, alt}) => {
+                                const isVideo = alt === 'Video';
+                                const isEmoji = src?.includes('emoji');
+                                
+                                if (isEmoji) {
+                                  return <img src={src} alt={alt} className="inline-block w-5 h-5 mx-1" />;
+                                }
+                                
+                                if (isVideo) {
+                                  return (
+                                    <div className="relative my-6 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                                      <img 
+                                        src={src} 
+                                        alt={alt}
+                                        className="w-full object-cover"
+                                        style={{ maxHeight: '500px' }}
+                                      />
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="bg-black/60 backdrop-blur-sm rounded-full p-4 hover:bg-black/70 transition-colors">
+                                          <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                          </svg>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                
+                                return (
+                                  <img 
+                                    src={src} 
+                                    alt={alt}
+                                    className="rounded-xl my-6 w-full object-cover shadow-lg border border-gray-100"
+                                    style={{ maxHeight: '600px' }}
+                                  />
+                                );
+                              },
+                              // 自定义链接样式
+                              a: ({href, children}) => (
+                                <a 
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-200 hover:decoration-blue-400 transition-colors"
+                                >
+                                  {children}
+                                </a>
+                              ),
+                              // 自定义分隔线
+                              hr: () => (
+                                <div className="my-8 flex items-center">
+                                  <div className="flex-1 border-t border-gray-200"></div>
+                                  <div className="px-4">
+                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                      <circle cx="12" cy="12" r="2"/>
+                                      <circle cx="6" cy="12" r="2"/>
+                                      <circle cx="18" cy="12" r="2"/>
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 border-t border-gray-200"></div>
+                                </div>
+                              ),
+                              // 自定义强调文本
+                              strong: ({children}) => (
+                                <strong className="font-semibold text-gray-900">{children}</strong>
+                              ),
+                              // 自定义斜体文本（用于视频标记）
+                              em: ({children}) => {
+                                const text = String(children);
+                                if (text.includes('[视频内容]')) {
+                                  return (
+                                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-2 mb-4">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      </svg>
+                                      <span>视频内容</span>
+                                    </div>
+                                  );
+                                }
+                                if (text.includes('.app') || text.includes('.com') || text.includes('.org')) {
+                                  return <span className="text-sm text-gray-500">{children}</span>;
+                                }
+                                return <em className="italic text-gray-700">{children}</em>;
+                              },
+                              // 自定义列表
+                              ul: ({children}) => (
+                                <ul className="my-6 ml-6 list-disc space-y-3 text-gray-700">
+                                  {children}
+                                </ul>
+                              ),
+                              ol: ({children}) => (
+                                <ol className="my-6 ml-6 list-decimal space-y-3 text-gray-700">
+                                  {children}
+                                </ol>
+                              ),
+                              // 自定义列表项
+                              li: ({children}) => (
+                                <li className="leading-relaxed pl-2">
+                                  <span className="block">{children}</span>
+                                </li>
+                              ),
+                              // 自定义代码块
+                              code: ({children}) => (
+                                <code className="px-2 py-1 bg-gray-100 text-pink-600 rounded text-sm font-mono">
+                                  {children}
+                                </code>
+                              ),
+                              // 自定义引用块
+                              blockquote: ({children}) => (
+                                <blockquote className="border-l-4 border-blue-400 pl-4 my-6 text-gray-700 italic">
+                                  {children}
+                                </blockquote>
+                              ),
+                              // 自定义标题
+                              h1: ({children}) => (
+                                <h1 className="text-3xl font-bold text-gray-900 mb-6 mt-8">{children}</h1>
+                              ),
+                              h2: ({children}) => (
+                                <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-6">{children}</h2>
+                              ),
+                              h3: ({children}) => (
+                                <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-4">{children}</h3>
+                              ),
+                              h4: ({children}) => (
+                                <h4 className="text-lg font-semibold text-gray-800 mb-2 mt-3">{children}</h4>
+                              ),
+                              h5: ({children}) => (
+                                <h5 className="text-base font-medium text-gray-800 mb-2 mt-2">{children}</h5>
+                              ),
+                              h6: ({children}) => (
+                                <h6 className="text-sm font-medium text-gray-700 mb-1 mt-2">{children}</h6>
+                              ),
+                            }}
+                          >
+                            {markdownContent}
+                          </ReactMarkdown>
+                        </div>
                       ) : (
                         <div className="text-center py-12 text-gray-500">
                           加载 Markdown 内容中...

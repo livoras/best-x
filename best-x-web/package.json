@@ -10,6 +10,7 @@
     "web": "next dev --turbopack"
   },
   "dependencies": {
+    "@tailwindcss/typography": "^0.5.16",
     "@types/better-sqlite3": "^7.6.13",
     "@types/turndown": "^5.0.5",
     "better-playwright-mcp": "^0.2.6",
@@ -21,6 +22,7 @@
     "next": "15.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-markdown": "^10.1.0",
     "turndown": "^7.2.1"
   },
   "devDependencies": {
