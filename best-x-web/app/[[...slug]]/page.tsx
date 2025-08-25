@@ -100,6 +100,12 @@ export default function Home({ params: paramsPromise }: PageProps) {
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [copied, setCopied] = useState(false);
   
+  // Tab 切换和 Markdown 内容状态
+  const [activeTab, setActiveTab] = useState<'article' | 'markdown'>('article');
+  const [markdownContent, setMarkdownContent] = useState<string | null>(null);
+  const [loadingMarkdown, setLoadingMarkdown] = useState(false);
+  const [markdownCopied, setMarkdownCopied] = useState(false);
+  
   // 快速提取模态框状态
   const [showQuickExtract, setShowQuickExtract] = useState(false);
   const [quickUrl, setQuickUrl] = useState('');
@@ -166,6 +172,10 @@ export default function Home({ params: paramsPromise }: PageProps) {
       } else {
         setArticleContent(null);
       }
+      
+      // 重置 Markdown 相关状态
+      setMarkdownContent(null);
+      setActiveTab('article');
     } catch (err: any) {
       setError(err.message || '加载历史记录失败');
       setArticleContent(null);
@@ -226,6 +236,33 @@ export default function Home({ params: paramsPromise }: PageProps) {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [history]);
+
+  // 获取 Markdown 内容
+  const fetchMarkdownContent = async () => {
+    if (!selectedHistoryId || markdownContent) return;
+    
+    setLoadingMarkdown(true);
+    try {
+      const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/article-markdown`);
+      if (res.ok) {
+        const data = await res.json();
+        setMarkdownContent(data.markdown);
+      }
+    } catch (err) {
+      console.error('Failed to fetch markdown:', err);
+    } finally {
+      setLoadingMarkdown(false);
+    }
+  };
+
+  // 复制 Markdown 内容
+  const copyMarkdown = () => {
+    if (markdownContent) {
+      navigator.clipboard.writeText(markdownContent);
+      setMarkdownCopied(true);
+      setTimeout(() => setMarkdownCopied(false), 2000);
+    }
+  };
 
   // 组件加载时获取历史记录和启动队列状态轮询
   useEffect(() => {
@@ -582,16 +619,48 @@ export default function Home({ params: paramsPromise }: PageProps) {
             </>
           }
           leftPane={
-            <div className="p-6 h-full overflow-y-auto">
-              {loadingArticle ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                    <p className="text-gray-500">加载文章内容...</p>
-                  </div>
+            <div className="h-full flex flex-col">
+              {/* Tab 切换按钮 */}
+              {articleContent && (
+                <div className="flex border-b border-gray-200 bg-white px-6 pt-4">
+                  <button
+                    onClick={() => setActiveTab('article')}
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                      activeTab === 'article'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    文章视图
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('markdown');
+                      fetchMarkdownContent();
+                    }}
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                      activeTab === 'markdown'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Markdown
+                  </button>
                 </div>
-              ) : articleContent ? (
-                <article className="bg-white rounded-xl border border-gray-100 p-6">
+              )}
+              
+              {/* 内容区域 */}
+              <div className="flex-1 p-6 overflow-y-auto">
+                {loadingArticle ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                      <p className="text-gray-500">加载文章内容...</p>
+                    </div>
+                  </div>
+                ) : articleContent ? (
+                  activeTab === 'article' ? (
+                    <article className="bg-white rounded-xl border border-gray-100 p-6">
                   {/* Author Header */}
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                     <img
@@ -753,8 +822,75 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     </button>
                   </div>
                 </article>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                  ) : (
+                    // Markdown 视图
+                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                      {/* Header with copy button - 与文章视图保持一致 */}
+                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                        <img
+                          src={articleContent.author.avatar}
+                          alt={articleContent.author.name}
+                          className="w-12 h-12 rounded-full"
+                        />
+                        <div>
+                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
+                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
+                        </div>
+                        <div className="ml-auto text-right mr-4">
+                          <div className="text-sm text-gray-500">
+                            {articleContent.tweetCount} 条连续推文
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {articleContent.tweets[0]?.time}
+                            {articleContent.tweetCount > 1 && 
+                              articleContent.tweets[articleContent.tweetCount - 1]?.time !== articleContent.tweets[0]?.time && 
+                              ` - ${articleContent.tweets[articleContent.tweetCount - 1]?.time}`}
+                          </div>
+                        </div>
+                        <button
+                          onClick={copyMarkdown}
+                          className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                            markdownCopied 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {markdownCopied ? (
+                            <>
+                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              已复制
+                            </>
+                          ) : (
+                            <>
+                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              复制全部
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Markdown Content */}
+                      {loadingMarkdown ? (
+                        <div className="flex items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        </div>
+                      ) : markdownContent ? (
+                        <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800 leading-relaxed overflow-x-auto">
+                          {markdownContent}
+                        </pre>
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          加载 Markdown 内容中...
+                        </div>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
                   <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h15m0 0l-3-3m3 3l-3 3m-13-3a6 6 0 1112 0 6 6 0 01-12 0z" />
                   </svg>
@@ -774,7 +910,8 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     </svg>
                   </Link>
                 </div>
-              )}
+                )}
+              </div>
             </div>
           }
           defaultLeftWidth={600}

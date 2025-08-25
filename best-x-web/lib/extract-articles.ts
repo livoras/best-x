@@ -4,7 +4,7 @@ import * as fs from 'fs';
 
 export async function extractArticles(url: string): Promise<string> {
   // 连接 Playwright
-  const client = new PlaywrightClient('http://localhost:3102');
+  const client = new PlaywrightClient('http://localhost:3103');
   
   // 打开页面
   const { pageId } = await client.createPage('x', 'Extract', url, 3000);

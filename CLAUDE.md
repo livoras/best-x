@@ -11,7 +11,7 @@ best-x is a Twitter/X content extraction tool with a Next.js frontend and Expres
 ### Two-Service Architecture
 - **Frontend**: Next.js app in `best-x-web/` on port 3000
 - **Backend**: Express API server (`best-x-web/server.ts`) on port 3001
-- **Browser Automation**: Uses better-playwright-mcp HTTP server on port 3102
+- **Browser Automation**: Uses better-playwright-mcp HTTP server on port 3103
 
 ### Key Components
 
@@ -89,7 +89,7 @@ All endpoints are prefixed with `/api/`:
 
 ## Dependencies & Prerequisites
 
-- **better-playwright-mcp** server must be running on port 3102
+- **better-playwright-mcp** server must be running on port 3103
 - Uses pnpm for package management
 - TypeScript with tsx for execution
 - Next.js 15.5.0 with Turbopack

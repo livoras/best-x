@@ -5,7 +5,7 @@ import * as fs from 'fs';
 export async function extractArticles(url: string): Promise<string> {
   console.log('1. 开始连接 Playwright...');
   // 连接 Playwright
-  const client = new PlaywrightClient('http://localhost:3102');
+  const client = new PlaywrightClient('http://localhost:3103');
   console.log('2. 连接成功');
   
   // 打开页面

@@ -150,6 +150,23 @@ app.get('/api/extractions/:id/article', (req: Request, res: Response) => {
   }
 });
 
+// 获取 Markdown 格式的文章内容
+app.get('/api/extractions/:id/article-markdown', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const markdownArticle = extractionsModel.getPostContentAsMarkdown(id);
+    
+    if (!markdownArticle) {
+      return res.status(404).json({ error: '记录不存在或无法生成 Markdown 文章' });
+    }
+    
+    res.json(markdownArticle);
+  } catch (error: any) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message || '获取 Markdown 文章内容失败' });
+  }
+});
+
 // 删除提取记录
 app.delete('/api/extractions/:id', (req: Request, res: Response) => {
   try {
@@ -341,6 +358,7 @@ async function startServer() {
       console.log('  - GET    /api/extractions             获取历史');
       console.log('  - GET    /api/extractions/:id         获取详情');
       console.log('  - GET    /api/extractions/:id/article 获取合并文章');
+      console.log('  - GET    /api/extractions/:id/article-markdown 获取 Markdown 文章');
       console.log('  - DELETE /api/extractions/:id         删除记录');
       console.log('  - GET    /api/search                  搜索功能');
     });

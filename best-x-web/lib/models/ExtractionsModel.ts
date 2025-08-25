@@ -1,6 +1,7 @@
 import { DB } from '../DB';
 import type { TweetResult, MediaItem } from '@/types/tweet';
 import { DEFAULT_SCROLLS } from '../consts';
+import TurndownService from 'turndown';
 
 // 提取记录类型
 export interface ExtractionRecord {
@@ -290,6 +291,85 @@ export class ExtractionsModel {
       tweets: mergedTweets,
       tweetCount: continuousTweets.length,
       url: tweetResult.url
+    };
+  }
+
+  // 获取 Markdown 格式的文章内容
+  public getPostContentAsMarkdown(extractionId: number): {
+    markdown: string;
+    author: {
+      name: string;
+      handle: string;
+      avatar: string;
+    };
+    tweetCount: number;
+    url: string;
+  } | null {
+    // 先获取 HTML 格式的文章内容
+    const articleContent = this.getPostContentByTweet(extractionId);
+    if (!articleContent) {
+      return null;
+    }
+
+    // 创建 Turndown 实例并配置
+    const turndownService = new TurndownService({
+      headingStyle: 'atx',
+      hr: '---',
+      bulletListMarker: '-',
+      codeBlockStyle: 'fenced',
+      emDelimiter: '*'
+    });
+
+    // 自定义规则：保留 Twitter 特有的格式
+    // 保留 @提及
+    turndownService.addRule('mentions', {
+      filter: function (node) {
+        return node.nodeName === 'A' && 
+               node.getAttribute('href')?.includes('/') &&
+               node.textContent?.startsWith('@');
+      },
+      replacement: function (content) {
+        return content; // 保持 @username 原样
+      }
+    });
+
+    // 保留 #标签
+    turndownService.addRule('hashtags', {
+      filter: function (node) {
+        return node.nodeName === 'A' && 
+               node.textContent?.startsWith('#');
+      },
+      replacement: function (content) {
+        return content; // 保持 #hashtag 原样
+      }
+    });
+
+    // 转换每条推文并拼接
+    const markdownParts: string[] = [];
+    
+    for (let i = 0; i < articleContent.tweets.length; i++) {
+      const tweet = articleContent.tweets[i];
+      
+      // 转换 HTML 到 Markdown
+      const markdownText = turndownService.turndown(tweet.text);
+      
+      // 添加到数组
+      markdownParts.push(markdownText);
+      
+      // 如果不是最后一条推文，添加分隔符
+      if (i < articleContent.tweets.length - 1) {
+        markdownParts.push('\n\n---\n\n');
+      }
+    }
+
+    // 拼接所有推文
+    const fullMarkdown = markdownParts.join('');
+
+    return {
+      markdown: fullMarkdown,
+      author: articleContent.author,
+      tweetCount: articleContent.tweetCount,
+      url: articleContent.url
     };
   }
 }

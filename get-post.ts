@@ -12,7 +12,7 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
     }
     
     // 连接到 HTTP 服务器
-    const client = new PlaywrightClient('http://localhost:3102');
+    const client = new PlaywrightClient('http://localhost:3103');
     
     // 打开推文并等待加载
     console.log(`📖 获取推文: ${tweetUrl}`);

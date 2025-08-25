@@ -13,7 +13,7 @@ import { PlaywrightClient } from 'better-playwright-mcp';
 
 async function automateWebPage() {
   // Connect to the HTTP server (must be running)
-  const client = new PlaywrightClient('http://localhost:3102');
+  const client = new PlaywrightClient('http://localhost:3103');
 
   // Create a page
   const { pageId, snapshot } = await client.createPage(
