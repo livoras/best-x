@@ -6,16 +6,19 @@ import { MAX_SCROLLS } from '@/lib/consts';
 // 任务接口
 interface Task {
   task_id: string;
+  type?: 'extract' | 'translate' | 'summary';  // 任务类型
   url: string;
+  params?: string;  // JSON格式的参数
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress?: number;
-  message?: string;
+  message?: string;  // progress_message 字段
   priority?: number;
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
   error?: string;
   elapsed?: number;
+  result_id?: number;  // 关联的extraction ID
 }
 
 // 任务队列状态接口
@@ -271,23 +274,61 @@ export default function Dashboard({
               }
               
               // 渲染任务列表
-              return filteredTasks.map((task) => (
-                <div key={task.task_id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      {/* 状态图标和URL */}
-                      <div className="flex items-center gap-2 mb-1">
-                        {task.status === 'completed' && <span className="text-green-500">✓</span>}
-                        {task.status === 'failed' && <span className="text-red-500">✗</span>}
-                        {task.status === 'processing' && (
-                          <svg className="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                        )}
-                        {task.status === 'pending' && <span className="text-gray-400">⏳</span>}
-                        <span className="text-sm text-gray-700 truncate flex-1">{task.url}</span>
-                      </div>
+              return filteredTasks.map((task) => {
+                // 解析任务参数
+                let taskParams: any = {};
+                try {
+                  if (task.params) {
+                    taskParams = JSON.parse(task.params);
+                  }
+                } catch (e) {
+                  // 忽略解析错误
+                }
+
+                // 获取任务类型显示
+                const getTaskTypeDisplay = () => {
+                  switch (task.type || 'extract') {
+                    case 'extract':
+                      return { label: '提取', color: 'bg-blue-100 text-blue-700', icon: '📥' };
+                    case 'translate':
+                      return { label: '翻译', color: 'bg-purple-100 text-purple-700', icon: '🌐' };
+                    case 'summary':
+                      return { label: '摘要', color: 'bg-yellow-100 text-yellow-700', icon: '📝' };
+                    default:
+                      return { label: '任务', color: 'bg-gray-100 text-gray-700', icon: '📋' };
+                  }
+                };
+
+                const taskTypeInfo = getTaskTypeDisplay();
+
+                return (
+                  <div key={task.task_id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        {/* 状态图标、任务类型和URL */}
+                        <div className="flex items-center gap-2 mb-1">
+                          {task.status === 'completed' && <span className="text-green-500">✓</span>}
+                          {task.status === 'failed' && <span className="text-red-500">✗</span>}
+                          {task.status === 'processing' && (
+                            <svg className="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          )}
+                          {task.status === 'pending' && <span className="text-gray-400">⏳</span>}
+                          
+                          {/* 任务类型标签 */}
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${taskTypeInfo.color}`}>
+                            {taskTypeInfo.icon} {taskTypeInfo.label}
+                          </span>
+                          
+                          {/* 显示URL或任务描述 */}
+                          <span className="text-sm text-gray-700 truncate flex-1">
+                            {task.type === 'translate' && taskParams.extractionId 
+                              ? `#${taskParams.extractionId} → ${taskParams.targetLang || '中文'}`
+                              : task.url || '无URL'}
+                          </span>
+                        </div>
                       
                       {/* 进度条（仅处理中任务） */}
                       {task.status === 'processing' && task.progress !== undefined && (
@@ -303,6 +344,32 @@ export default function Dashboard({
                           </div>
                         </div>
                       )}
+                      
+                      {/* 任务结果（仅完成任务） */}
+                      {task.status === 'completed' && task.message && (() => {
+                        try {
+                          const result = JSON.parse(task.message);
+                          if (task.type === 'extract') {
+                            return (
+                              <div className="text-xs text-green-600 mt-1">
+                                ✅ 成功提取 {result.tweetCount || 0} 条推文
+                              </div>
+                            );
+                          } else if (task.type === 'translate') {
+                            return (
+                              <div className="text-xs text-green-600 mt-1">
+                                ✅ 已翻译为{result.targetLang || '中文'}
+                                {result.outputFile && (
+                                  <span className="text-gray-500"> • 保存至: {result.outputFile.split('/').pop()}</span>
+                                )}
+                              </div>
+                            );
+                          }
+                        } catch (e) {
+                          // 如果不是JSON，直接显示消息
+                          return null;
+                        }
+                      })()}
                       
                       {/* 错误信息（仅失败任务） */}
                       {task.status === 'failed' && task.error && (
@@ -323,7 +390,8 @@ export default function Dashboard({
                     </div>
                   </div>
                 </div>
-              ));
+                );
+              });
             })()}
           </div>
           

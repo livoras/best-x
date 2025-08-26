@@ -405,9 +405,38 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       <div className="text-sm text-gray-600 line-clamp-2 mb-2">
                         {stripHtml(item.main_tweet_text)}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span>{item.tweet_count} 条推文</span>
-                        <span>{new Date(item.extract_time).toLocaleDateString()}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                          <span>{item.tweet_count} 条推文</span>
+                          <span>{new Date(item.extract_time).toLocaleDateString()}</span>
+                        </div>
+                        {/* 翻译按钮 */}
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation(); // 防止触发loadHistoryItem
+                            try {
+                              const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/translate`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ targetLang: '中文' })
+                              });
+                              
+                              const data = await res.json();
+                              if (res.ok) {
+                                console.log('翻译任务已创建:', data.taskId);
+                                // 可以显示一个提示消息
+                              } else {
+                                console.error('创建翻译任务失败:', data.error);
+                              }
+                            } catch (error) {
+                              console.error('请求失败:', error);
+                            }
+                          }}
+                          className="px-2 py-0.5 text-xs bg-purple-50 hover:bg-purple-100 text-purple-600 rounded transition-colors"
+                          title="翻译为中文"
+                        >
+                          🌐 翻译
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -228,7 +228,9 @@ export default class QueueModel {
     const allTasks = db.prepare(`
       SELECT 
         task_id, 
+        type,
         url, 
+        params,
         status, 
         progress,
         progress_message,
@@ -313,7 +315,9 @@ export default class QueueModel {
       })),
       allTasks: allTasks.map(t => ({
         task_id: t.task_id,
+        type: t.type,
         url: t.url,
+        params: t.params,
         status: t.status,
         progress: t.progress,
         message: t.progress_message,
