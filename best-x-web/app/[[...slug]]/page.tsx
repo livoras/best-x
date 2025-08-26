@@ -102,7 +102,6 @@ export default function Home({ params: paramsPromise }: PageProps) {
   const searchParams = useSearchParams();
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [history, setHistory] = useState<ExtractionRecord[]>([]);
-  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
@@ -202,14 +201,14 @@ export default function Home({ params: paramsPromise }: PageProps) {
       const data = await res.json();
       const extractions = data.extractions || [];
       setHistory(extractions);
-      return extractions; // 返回历史记录数据
+      return extractions;
     } catch (err) {
       console.error('Failed to fetch history:', err);
       return [];
     }
   };
 
-  // 加载提取内容（不更新路由）
+  // 加载提取内容
   const loadExtractionContent = async (id: number) => {
     setLoadingHistory(true);
     setLoadingArticle(true);
@@ -258,65 +257,51 @@ export default function Home({ params: paramsPromise }: PageProps) {
     }
   };
 
-  // 加载历史记录的推文（会更新路由）
-  const loadHistoryItem = async (id: number) => {
-    setSelectedHistoryId(id);
-    // 使用 window.history.pushState 避免页面重新加载
-    window.history.pushState({}, '', `/extraction/${id}`);
-    // 加载内容
-    await loadExtractionContent(id);
+  // 加载历史记录的推文（使用 Next.js Router）
+  const loadHistoryItem = (id: number) => {
+    router.push(`/extraction/${id}`);
+    // 不需要手动加载内容，useEffect 会基于 URL 变化自动处理
   };
 
   // 使用 ref 追踪上一次的完成数量
   const previousCompletedRef = useRef<number>(0);
+  // 使用 ref 追踪当前加载的 extraction ID，避免重复加载
+  const currentLoadedId = useRef<number | null>(null);
 
-  // 处理路由参数中的extraction ID
+  // 处理路由参数变化 - 基于 params.slug 加载内容
   useEffect(() => {
     // 检查是否是 /extraction/ID 路由
     if (params.slug && params.slug[0] === 'extraction' && params.slug[1]) {
       const id = parseInt(params.slug[1]);
-      if (!isNaN(id) && id !== selectedHistoryId && history.length > 0) {
-        // 检查这个ID是否存在于历史记录中
-        const exists = history.some(item => item.id === id);
-        if (exists) {
-          // 直接加载内容，不再调用loadHistoryItem以避免循环
-          setSelectedHistoryId(id);
-          loadExtractionContent(id);
+      
+      if (!isNaN(id)) {
+        // 只在 history 加载完成后加载内容
+        if (history.length > 0) {
+          const exists = history.some(item => item.id === id);
+          if (exists && currentLoadedId.current !== id) {
+            // 避免重复加载同一个 extraction
+            currentLoadedId.current = id;
+            loadExtractionContent(id);
+          }
         }
       }
+    } else {
+      // 不是 extraction 路由时，重置状态
+      currentLoadedId.current = null;
     }
   }, [params.slug, history]);
 
-  // 处理浏览器前进/后退
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname;
-      const match = path.match(/^\/extraction\/(\d+)$/);
-      if (match) {
-        const id = parseInt(match[1]);
-        if (!isNaN(id) && history.some(item => item.id === id)) {
-          setSelectedHistoryId(id);
-          loadExtractionContent(id);
-        }
-      } else if (path === '/') {
-        // 返回主页时清空选中状态
-        setSelectedHistoryId(null);
-        setTweets([]);
-        setArticleContent(null);
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [history]);
+  // Next.js Router 会自动处理浏览器前进/后退，不需要手动监听 popstate
 
   // 获取 Markdown 内容
   const fetchMarkdownContent = async () => {
-    if (!selectedHistoryId || markdownContent) return;
+    // 从 URL 获取当前 extraction ID
+    const extractionId = params.slug?.[0] === 'extraction' && params.slug[1] ? parseInt(params.slug[1]) : null;
+    if (!extractionId || markdownContent) return;
     
     setLoadingMarkdown(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/article-markdown`);
+      const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/article-markdown`);
       if (res.ok) {
         const data = await res.json();
         setMarkdownContent(data.markdown);
@@ -330,20 +315,27 @@ export default function Home({ params: paramsPromise }: PageProps) {
   
   // 检查是否有翻译可用
   const checkTranslationAvailable = async (extractionId: number) => {
+    console.log('[DEBUG] Checking translation for extraction:', extractionId);
     try {
       const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/translation`);
+      console.log('[DEBUG] Translation check response:', res.ok, res.status);
       setHasTranslation(res.ok);
       // 如果有翻译，自动切换到翻译 tab
       if (res.ok) {
+        console.log('[DEBUG] Translation found! Loading content...');
         setActiveTab('translation');
         // 直接加载翻译内容
         const translationRes = await fetch(`http://localhost:3001/api/extractions/${extractionId}/translation`);
         if (translationRes.ok) {
           const data = await translationRes.json();
           setTranslationContent(data.translationContent);
+          console.log('[DEBUG] Translation content loaded');
         }
+      } else {
+        console.log('[DEBUG] No translation found');
       }
     } catch (err) {
+      console.error('[DEBUG] Translation check error:', err);
       setHasTranslation(false);
     }
   };
@@ -364,11 +356,12 @@ export default function Home({ params: paramsPromise }: PageProps) {
   
   // 获取翻译内容
   const fetchTranslationContent = async () => {
-    if (!selectedHistoryId || translationContent) return;
+    const extractionId = params.slug?.[0] === 'extraction' && params.slug[1] ? parseInt(params.slug[1]) : null;
+    if (!extractionId || translationContent) return;
     
     setLoadingTranslation(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/translation`);
+      const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/translation`);
       if (res.ok) {
         const data = await res.json();
         setTranslationContent(data.translationContent);
@@ -382,11 +375,12 @@ export default function Home({ params: paramsPromise }: PageProps) {
   
   // 获取标签内容
   const fetchTagsContent = async () => {
-    if (!selectedHistoryId || tagsContent) return;
+    const extractionId = params.slug?.[0] === 'extraction' && params.slug[1] ? parseInt(params.slug[1]) : null;
+    if (!extractionId || tagsContent) return;
     
     setLoadingTags(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/tags`);
+      const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/tags`);
       if (res.ok) {
         const data = await res.json();
         setTagsContent(data);
@@ -428,11 +422,15 @@ export default function Home({ params: paramsPromise }: PageProps) {
         
         // 检测是否有新任务完成
         if (data.summary.completed > previousCompletedRef.current && previousCompletedRef.current > 0) {
-          // 有新任务完成，刷新历史记录并自动激活最新的
-          const updatedHistory = await fetchHistory();
-          if (updatedHistory.length > 0) {
-            // 自动加载最新的历史记录（第一条）
-            loadHistoryItem(updatedHistory[0].id);
+          // 刷新历史记录列表
+          await fetchHistory();
+          
+          // 如果当前正在查看某个extraction，刷新它的数据
+          if (params.slug && params.slug[0] === 'extraction' && params.slug[1]) {
+            const currentId = parseInt(params.slug[1]);
+            if (!isNaN(currentId)) {
+              await loadExtractionContent(currentId);
+            }
           }
         }
         
@@ -514,7 +512,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
             articleContent={articleContent}
             tagsContent={tagsContent}
             loadingTags={loadingTags}
-            selectedHistoryId={selectedHistoryId}
+            selectedHistoryId={params.slug?.[0] === 'extraction' && params.slug[1] ? parseInt(params.slug[1]) : null}
             checkTagsAvailable={checkTagsAvailable}
           />
         );
@@ -553,7 +551,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                 <HistoryItem
                   key={item.id}
                   item={item}
-                  isSelected={selectedHistoryId === item.id}
+                  isSelected={params.slug?.[0] === 'extraction' && params.slug[1] ? parseInt(params.slug[1]) === item.id : false}
                   onClick={() => loadHistoryItem(item.id)}
                   stripHtml={stripHtml}
                 />

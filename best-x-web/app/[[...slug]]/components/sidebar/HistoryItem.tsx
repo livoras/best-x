@@ -26,6 +26,7 @@ export default function HistoryItem({
 }: HistoryItemProps) {
   const handleTranslate = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('[DEBUG] Translation button clicked for extraction:', item.id);
     try {
       const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/translate`, {
         method: 'POST',
@@ -35,12 +36,12 @@ export default function HistoryItem({
       
       const data = await res.json();
       if (res.ok) {
-        console.log('翻译任务已创建:', data.taskId);
+        console.log('[DEBUG] Translation task created successfully:', data.taskId, 'for extraction:', item.id);
       } else {
-        console.error('创建翻译任务失败:', data.error);
+        console.error('[DEBUG] Failed to create translation task:', data.error);
       }
     } catch (error) {
-      console.error('请求失败:', error);
+      console.error('[DEBUG] Translation request failed:', error);
     }
   };
 
