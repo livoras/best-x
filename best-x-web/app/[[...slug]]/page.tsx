@@ -809,16 +809,6 @@ export default function Home({ params: paramsPromise }: PageProps) {
               {/* Tab 切换按钮 */}
               {articleContent && (
                 <div className="flex border-b border-gray-200 bg-white px-6">
-                  <button
-                    onClick={() => setActiveTab('article')}
-                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
-                      activeTab === 'article'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    文章视图
-                  </button>
                   {hasTranslation && (
                     <button
                       onClick={() => {
@@ -834,6 +824,16 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       翻译
                     </button>
                   )}
+                  <button
+                    onClick={() => setActiveTab('article')}
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
+                      activeTab === 'article'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    文章视图
+                  </button>
                   <button
                     onClick={() => {
                       setActiveTab('markdown');

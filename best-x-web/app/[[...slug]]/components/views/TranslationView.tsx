@@ -23,6 +23,18 @@ interface TranslationViewProps {
 // 导出 Markdown 组件配置，供其他组件复用
 export const markdownComponents = {
   p: ({children}: any) => {
+    // 检查是否包含视频或块级元素
+    const hasBlockElement = React.Children.toArray(children).some((child: any) => {
+      // 检查是否是视频图片或其他块级元素
+      if (child?.type === 'div' || child?.type === 'span' && child?.props?.className?.includes('block')) {
+        return true;
+      }
+      if (child?.props?.alt === 'Video' || child?.props?.src?.includes('video')) {
+        return true;
+      }
+      return false;
+    });
+    
     const processChildren = (child: any): any => {
       if (typeof child === 'string') {
         const lines = child.split('\n');
@@ -40,6 +52,15 @@ export const markdownComponents = {
       }
       return child;
     };
+    
+    // 如果包含块级元素，使用 div 代替 p
+    if (hasBlockElement) {
+      return (
+        <div className="text-gray-800 leading-relaxed mb-6 text-base whitespace-pre-line">
+          {processChildren(children)}
+        </div>
+      );
+    }
     
     return (
       <p className="text-gray-800 leading-relaxed mb-6 text-base whitespace-pre-line">
