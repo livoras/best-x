@@ -102,7 +102,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
   const [copied, setCopied] = useState(false);
   
   // Tab 切换和 Markdown 内容状态
-  const [activeTab, setActiveTab] = useState<'article' | 'markdown' | 'rendered' | 'translation'>('article');
+  const [activeTab, setActiveTab] = useState<'translation' | 'article' | 'markdown' | 'rendered'>('article');
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [loadingMarkdown, setLoadingMarkdown] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
@@ -316,6 +316,16 @@ export default function Home({ params: paramsPromise }: PageProps) {
     try {
       const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/translation`);
       setHasTranslation(res.ok);
+      // 如果有翻译，自动切换到翻译 tab
+      if (res.ok) {
+        setActiveTab('translation');
+        // 直接加载翻译内容
+        const translationRes = await fetch(`http://localhost:3001/api/extractions/${extractionId}/translation`);
+        if (translationRes.ok) {
+          const data = await translationRes.json();
+          setTranslationContent(data.translationContent);
+        }
+      }
     } catch (err) {
       setHasTranslation(false);
     }
@@ -745,6 +755,21 @@ export default function Home({ params: paramsPromise }: PageProps) {
               {/* Tab 切换按钮 */}
               {articleContent && (
                 <div className="flex border-b border-gray-200 bg-white px-6 pt-4">
+                  {hasTranslation && (
+                    <button
+                      onClick={() => {
+                        setActiveTab('translation');
+                        fetchTranslationContent();
+                      }}
+                      className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
+                        activeTab === 'translation'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      翻译
+                    </button>
+                  )}
                   <button
                     onClick={() => setActiveTab('article')}
                     className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
@@ -781,21 +806,6 @@ export default function Home({ params: paramsPromise }: PageProps) {
                   >
                     渲染视图
                   </button>
-                  {hasTranslation && (
-                    <button
-                      onClick={() => {
-                        setActiveTab('translation');
-                        fetchTranslationContent();
-                      }}
-                      className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
-                        activeTab === 'translation'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      翻译
-                    </button>
-                  )}
                 </div>
               )}
               
