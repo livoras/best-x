@@ -9,6 +9,14 @@ import ResizablePane from '@/components/ResizablePane';
 import { DEFAULT_SCROLLS, MAX_SCROLLS } from '@/lib/consts';
 import ReactMarkdown from 'react-markdown';
 
+// 导入视图组件
+import ArticleView from './components/views/ArticleView';
+import TranslationView from './components/views/TranslationView';
+import MarkdownView from './components/views/MarkdownView';
+import RenderedView from './components/views/RenderedView';
+import TagsView from './components/views/TagsView';
+import HistoryItem from './components/sidebar/HistoryItem';
+
 interface ExtractionRecord {
   id: number;
   url: string;
@@ -450,6 +458,71 @@ export default function Home({ params: paramsPromise }: PageProps) {
     return num;
   };
 
+  // 渲染内容视图
+  const renderContentView = () => {
+    if (!articleContent) return null;
+
+    switch (activeTab) {
+      case 'article':
+        return (
+          <ArticleView
+            articleContent={articleContent}
+            copied={copied}
+            setCopied={setCopied}
+            formatTweetTime={formatTweetTime}
+          />
+        );
+      
+      case 'translation':
+        return (
+          <TranslationView
+            articleContent={articleContent}
+            translationContent={translationContent}
+            loadingTranslation={loadingTranslation}
+            translationCopied={translationCopied}
+            copyTranslation={copyTranslation}
+            formatTweetTime={formatTweetTime}
+          />
+        );
+      
+      case 'markdown':
+        return (
+          <MarkdownView
+            articleContent={articleContent}
+            markdownContent={markdownContent}
+            loadingMarkdown={loadingMarkdown}
+            markdownCopied={markdownCopied}
+            copyMarkdown={copyMarkdown}
+            formatTweetTime={formatTweetTime}
+          />
+        );
+      
+      case 'rendered':
+        return (
+          <RenderedView
+            articleContent={articleContent}
+            markdownContent={markdownContent}
+            loadingMarkdown={loadingMarkdown}
+            formatTweetTime={formatTweetTime}
+          />
+        );
+      
+      case 'tags':
+        return (
+          <TagsView
+            articleContent={articleContent}
+            tagsContent={tagsContent}
+            loadingTags={loadingTags}
+            selectedHistoryId={selectedHistoryId}
+            checkTagsAvailable={checkTagsAvailable}
+          />
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   return (
     <main className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header - 横贯屏幕 */}
@@ -510,115 +583,13 @@ export default function Home({ params: paramsPromise }: PageProps) {
               </div>
             ) : (
               history.map((item) => (
-                <div
+                <HistoryItem
                   key={item.id}
+                  item={item}
+                  isSelected={selectedHistoryId === item.id}
                   onClick={() => loadHistoryItem(item.id)}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors border-l-2 ${
-                    selectedHistoryId === item.id ? 'bg-blue-50 border-l-blue-500' : 'border-transparent'
-                  }`}
-                >
-                  {/* 环绕式布局 */}
-                  <div>
-                    {/* 第一行：头像 + 用户信息 */}
-                    <div className="flex gap-3 mb-2">
-                      {/* Avatar */}
-                      <div className="flex-shrink-0">
-                        {item.author_avatar ? (
-                          <Image
-                            src={item.author_avatar}
-                            alt={item.author_name}
-                            width={40}
-                            height={40}
-                            className="rounded-full"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                            <span className="text-gray-500 text-sm font-medium">
-                              {item.author_name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* 用户信息 */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-gray-900 truncate">{item.author_name}</span>
-                          <span className="text-gray-500 text-sm truncate">{item.author_handle}</span>
-                        </div>
-                        {/* 推文数量和时间 - 移到头像右侧 */}
-                        <div className="flex items-center gap-3 text-xs text-gray-400">
-                          <span>{item.tweet_count} 条推文</span>
-                          <span>{new Date(item.extract_time).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* 第二部分：推文内容 - 全宽度 */}
-                    <div className="text-sm text-gray-600 line-clamp-2 mb-2 pl-0">
-                      {stripHtml(item.main_tweet_text)}
-                    </div>
-                    
-                    {/* 第三部分：操作按钮 - 全宽度 */}
-                    <div className="flex items-center gap-2 pl-0">
-                          {/* 翻译按钮 */}
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation(); // 防止触发loadHistoryItem
-                              try {
-                                const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/translate`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ targetLang: '中文' })
-                                });
-                                
-                                const data = await res.json();
-                                if (res.ok) {
-                                  console.log('翻译任务已创建:', data.taskId);
-                                  // 可以显示一个提示消息
-                                } else {
-                                  console.error('创建翻译任务失败:', data.error);
-                                }
-                              } catch (error) {
-                                console.error('请求失败:', error);
-                              }
-                            }}
-                            className="px-2 py-1 text-xs bg-purple-50 hover:bg-purple-100 text-purple-600 rounded transition-colors cursor-pointer"
-                            title="翻译为中文"
-                          >
-                            🌐 翻译
-                          </button>
-                          
-                          {/* 标签按钮 */}
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/tag`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({})
-                                });
-                                
-                                const data = await res.json();
-                                if (res.ok) {
-                                  console.log('标签任务已创建:', data.taskId);
-                                } else {
-                                  console.error('创建标签任务失败:', data.error);
-                                }
-                              } catch (error) {
-                                console.error('请求失败:', error);
-                              }
-                            }}
-                            className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded transition-colors cursor-pointer"
-                            title="AI 标签分类"
-                          >
-                            🏷️ 标签
-                          </button>
-                    </div>
-                  </div>
-                </div>
+                  stripHtml={stripHtml}
+                />
               ))
             )}
           </div>
@@ -910,791 +881,28 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     </div>
                   </div>
                 ) : articleContent ? (
-                  (() => {
-                    switch (activeTab) {
-                      case 'article':
-                        return (
-                    <article className="bg-white rounded-xl border border-gray-100 p-6">
-                  {/* Author Header */}
-                  <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                    <img
-                      src={articleContent.author.avatar}
-                      alt={articleContent.author.name}
-                      className="w-12 h-12 rounded-full"
-                    />
-                    <div>
-                      <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
-                      <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <div className="text-sm text-gray-500">
-                        {articleContent.tweetCount} 条连续推文
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {formatTweetTime(articleContent.tweets[0]?.time)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tweet Content with Media */}
-                  <div className="space-y-6">
-                    {articleContent.tweets.map((tweet, index) => (
-                      <div key={index} className={index > 0 ? "pt-4 border-t border-gray-100" : ""}>
-                        {/* Tweet Text */}
-                        <div 
-                          className="whitespace-pre-wrap text-gray-800 leading-relaxed mb-3 tweet-content"
-                          dangerouslySetInnerHTML={{ __html: tweet.text }}
-                        />
-                        
-                        {/* Tweet Media - 使用items数组按原始顺序渲染 */}
-                        {tweet.media.items && tweet.media.items.length > 0 && (
-                          <div className={`grid gap-2 mb-3 ${
-                            tweet.media.items.length === 1 
-                              ? 'grid-cols-1' 
-                              : tweet.media.items.length <= 4 
-                                ? 'grid-cols-2' 
-                                : 'grid-cols-3'
-                          }`}>
-                            {tweet.media.items.map((item, itemIdx) => (
-                              item.type === 'image' ? (
-                                <img
-                                  key={`tweet-${index}-item-${itemIdx}`}
-                                  src={item.url}
-                                  alt={`Tweet ${index + 1} Image ${itemIdx + 1}`}
-                                  className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity object-cover"
-                                  style={{ 
-                                    maxHeight: tweet.media.items.length === 1 ? '400px' : '200px' 
-                                  }}
-                                  onClick={() => window.open(item.url, '_blank')}
-                                />
-                              ) : (
-                                <div key={`tweet-${index}-item-${itemIdx}`} className="relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer group"
-                                     onClick={() => window.open(item.thumbnail, '_blank')}>
-                                  <img
-                                    src={item.thumbnail}
-                                    alt={`Tweet ${index + 1} Video ${itemIdx + 1}`}
-                                    className="w-full object-cover hover:opacity-90 transition-opacity"
-                                    style={{ maxHeight: tweet.media.items.length === 1 ? '400px' : '200px' }}
-                                  />
-                                  {/* Play button overlay */}
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform shadow-lg">
-                                      <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M8 5v14l11-7z"/>
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            ))}
-                          </div>
-                        )}
-                        
-                        {/* Twitter Card */}
-                        {tweet.card && (
-                          <a 
-                            href={tweet.card.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block border border-gray-200 rounded-lg overflow-hidden hover:bg-gray-50 transition-colors mb-3"
-                          >
-                            {tweet.card.image && (
-                              <img 
-                                src={tweet.card.image}
-                                alt={tweet.card.title}
-                                className="w-full object-cover"
-                                style={{ maxHeight: '300px' }}
-                              />
-                            )}
-                            <div className="p-4">
-                              <div className="text-sm text-gray-500 mb-1">
-                                {tweet.card.domain}
-                              </div>
-                              <div className="text-gray-900 font-semibold text-lg">
-                                {tweet.card.title}
-                              </div>
-                              {tweet.card.description && (
-                                <div className="text-sm text-gray-600 mt-2">
-                                  {tweet.card.description}
-                                </div>
-                              )}
-                            </div>
-                          </a>
-                        )}
-                        
-                        {/* Time stamp for multiple tweets */}
-                        {articleContent.tweetCount > 1 && (
-                          <div className="text-xs text-gray-400 mt-2">
-                            {formatTweetTime(tweet.time)}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Original Link */}
-                  <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-3">
-                    <a
-                      href={articleContent.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-blue-500 hover:text-blue-600 transition-colors"
-                    >
-                      查看原始推文
-                      <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(articleContent.url);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      className={`inline-flex items-center text-sm transition-colors ${
-                        copied ? 'text-green-600' : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      {copied ? (
-                        <>
-                          <svg className="mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          已复制
-                        </>
-                      ) : (
-                        <>
-                          <svg className="mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                          复制链接
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </article>
-                        );
-                      case 'markdown':
-                        return (
-                    // Markdown 视图
-                    <div className="bg-white rounded-xl border border-gray-100 p-6 relative">
-                      {/* 复制按钮 - 绝对定位在右上角 */}
-                      <button
-                        onClick={copyMarkdown}
-                        className={`absolute top-2 right-2 p-1.5 rounded-full transition-all z-10 ${
-                          markdownCopied 
-                            ? 'bg-green-100 text-green-600' 
-                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                        }`}
-                        title={markdownCopied ? '已复制' : '复制全部'}
-                      >
-                        {markdownCopied ? (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        )}
-                      </button>
-                      
-                      {/* Header - 不受按钮影响 */}
-                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <img
-                          src={articleContent.author.avatar}
-                          alt={articleContent.author.name}
-                          className="w-12 h-12 rounded-full"
-                        />
-                        <div>
-                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
-                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
-                        </div>
-                        <div className="ml-auto text-right pr-8">
-                          <div className="text-sm text-gray-500">
-                            {articleContent.tweetCount} 条连续推文
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {formatTweetTime(articleContent.tweets[0]?.time)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Markdown Content */}
-                      {loadingMarkdown ? (
-                        <div className="flex items-center justify-center py-12">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : markdownContent ? (
-                        <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800 leading-relaxed overflow-x-auto">
-                          {markdownContent}
-                        </pre>
-                      ) : (
-                        <div className="text-center py-12 text-gray-500">
-                          加载 Markdown 内容中...
-                        </div>
-                      )}
-                    </div>
-                        );
-                      case 'rendered':
-                        return (
-                    // 渲染视图
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
-                      {/* Header - 与其他视图保持一致 */}
-                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <img
-                          src={articleContent.author.avatar}
-                          alt={articleContent.author.name}
-                          className="w-12 h-12 rounded-full"
-                        />
-                        <div>
-                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
-                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
-                        </div>
-                        <div className="ml-auto text-right pr-8">
-                          <div className="text-sm text-gray-500">
-                            {articleContent.tweetCount} 条连续推文
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {formatTweetTime(articleContent.tweets[0]?.time)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Rendered Markdown Content */}
-                      {loadingMarkdown ? (
-                        <div className="flex items-center justify-center py-12">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : markdownContent ? (
-                        <div className="markdown-content">
-                          <ReactMarkdown
-                            components={{
-                              // 自定义段落样式 - 处理换行
-                              p: ({children}) => {
-                                // 处理包含换行的文本
-                                const processChildren = (child: any): any => {
-                                  if (typeof child === 'string') {
-                                    // 将双换行转换为分段，单换行保留为<br/>
-                                    const lines = child.split('\n');
-                                    return lines.map((line, i) => (
-                                      <React.Fragment key={i}>
-                                        {line}
-                                        {i < lines.length - 1 && <br />}
-                                      </React.Fragment>
-                                    ));
-                                  }
-                                  if (Array.isArray(child)) {
-                                    return child.map((c, i) => (
-                                      <React.Fragment key={i}>{processChildren(c)}</React.Fragment>
-                                    ));
-                                  }
-                                  return child;
-                                };
-                                
-                                return (
-                                  <p className="text-gray-800 leading-relaxed mb-6 text-base whitespace-pre-line">
-                                    {processChildren(children)}
-                                  </p>
-                                );
-                              },
-                              // 自定义图片样式
-                              img: ({src, alt}) => {
-                                const isVideo = alt === 'Video';
-                                const isEmoji = src?.includes('emoji');
-                                
-                                if (isEmoji) {
-                                  return <img src={src} alt={alt} className="inline-block w-5 h-5 mx-1" />;
-                                }
-                                
-                                if (isVideo) {
-                                  return (
-                                    <div className="relative my-6 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-                                      <img 
-                                        src={src} 
-                                        alt={alt}
-                                        className="w-full object-cover"
-                                        style={{ maxHeight: '500px' }}
-                                      />
-                                      <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="bg-black/60 backdrop-blur-sm rounded-full p-4 hover:bg-black/70 transition-colors">
-                                          <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z"/>
-                                          </svg>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                
-                                return (
-                                  <img 
-                                    src={src} 
-                                    alt={alt}
-                                    className="rounded-xl my-6 w-full object-cover shadow-lg border border-gray-100"
-                                    style={{ maxHeight: '600px' }}
-                                  />
-                                );
-                              },
-                              // 自定义链接样式
-                              a: ({href, children}) => (
-                                <a 
-                                  href={href}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-200 hover:decoration-blue-400 transition-colors"
-                                >
-                                  {children}
-                                </a>
-                              ),
-                              // 自定义分隔线
-                              hr: () => (
-                                <div className="my-8 flex items-center">
-                                  <div className="flex-1 border-t border-gray-200"></div>
-                                  <div className="px-4">
-                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                      <circle cx="12" cy="12" r="2"/>
-                                      <circle cx="6" cy="12" r="2"/>
-                                      <circle cx="18" cy="12" r="2"/>
-                                    </svg>
-                                  </div>
-                                  <div className="flex-1 border-t border-gray-200"></div>
-                                </div>
-                              ),
-                              // 自定义强调文本
-                              strong: ({children}) => (
-                                <strong className="font-semibold text-gray-900">{children}</strong>
-                              ),
-                              // 自定义斜体文本（用于视频标记）
-                              em: ({children}) => {
-                                const text = String(children);
-                                if (text.includes('[视频内容]')) {
-                                  return (
-                                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-2 mb-4">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                      </svg>
-                                      <span>视频内容</span>
-                                    </div>
-                                  );
-                                }
-                                if (text.includes('.app') || text.includes('.com') || text.includes('.org')) {
-                                  return <span className="text-sm text-gray-500">{children}</span>;
-                                }
-                                return <em className="italic text-gray-700">{children}</em>;
-                              },
-                              // 自定义列表
-                              ul: ({children}) => (
-                                <ul className="my-6 ml-6 list-disc space-y-3 text-gray-700">
-                                  {children}
-                                </ul>
-                              ),
-                              ol: ({children}) => (
-                                <ol className="my-6 ml-6 list-decimal space-y-3 text-gray-700">
-                                  {children}
-                                </ol>
-                              ),
-                              // 自定义列表项
-                              li: ({children}) => (
-                                <li className="leading-relaxed pl-2">
-                                  <span className="block">{children}</span>
-                                </li>
-                              ),
-                              // 自定义代码块
-                              code: ({children}) => (
-                                <code className="px-2 py-1 bg-gray-100 text-pink-600 rounded text-sm font-mono">
-                                  {children}
-                                </code>
-                              ),
-                              // 自定义引用块
-                              blockquote: ({children}) => (
-                                <blockquote className="border-l-4 border-blue-400 pl-4 my-6 text-gray-700 italic">
-                                  {children}
-                                </blockquote>
-                              ),
-                              // 自定义标题
-                              h1: ({children}) => (
-                                <h1 className="text-3xl font-bold text-gray-900 mb-6 mt-8">{children}</h1>
-                              ),
-                              h2: ({children}) => (
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-6">{children}</h2>
-                              ),
-                              h3: ({children}) => (
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-4">{children}</h3>
-                              ),
-                              h4: ({children}) => (
-                                <h4 className="text-lg font-semibold text-gray-800 mb-2 mt-3">{children}</h4>
-                              ),
-                              h5: ({children}) => (
-                                <h5 className="text-base font-medium text-gray-800 mb-2 mt-2">{children}</h5>
-                              ),
-                              h6: ({children}) => (
-                                <h6 className="text-sm font-medium text-gray-700 mb-1 mt-2">{children}</h6>
-                              ),
-                            }}
-                          >
-                            {markdownContent}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <div className="text-center py-12 text-gray-500">
-                          加载 Markdown 内容中...
-                        </div>
-                      )}
-                    </div>
-                        );
-                      case 'translation':
-                        return (
-                    // 翻译视图
-                    <div className="bg-white rounded-xl border border-gray-100 p-6 relative">
-                      {/* 复制按钮 - 绝对定位在右上角 */}
-                      <button
-                        onClick={copyTranslation}
-                        className={`absolute top-2 right-2 p-1.5 rounded-full transition-all z-10 ${
-                          translationCopied 
-                            ? 'bg-green-100 text-green-600' 
-                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                        }`}
-                        title={translationCopied ? '已复制' : '复制翻译'}
-                      >
-                        {translationCopied ? (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        )}
-                      </button>
-                      
-                      {/* Header - 不受按钮影响 */}
-                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <img
-                          src={articleContent.author.avatar}
-                          alt={articleContent.author.name}
-                          className="w-12 h-12 rounded-full"
-                        />
-                        <div>
-                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
-                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
-                        </div>
-                        <div className="ml-auto text-right pr-8">
-                          <div className="text-sm text-gray-500">
-                            翻译内容
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            目标语言：中文
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Translation Content */}
-                      {loadingTranslation ? (
-                        <div className="flex items-center justify-center py-12">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : translationContent ? (
-                        <div className="markdown-content">
-                          <ReactMarkdown
-                            components={{
-                              // 复用渲染视图的组件样式
-                              p: ({children}) => {
-                                const processChildren = (child: any): any => {
-                                  if (typeof child === 'string') {
-                                    const lines = child.split('\n');
-                                    return lines.map((line, i) => (
-                                      <React.Fragment key={i}>
-                                        {line}
-                                        {i < lines.length - 1 && <br />}
-                                      </React.Fragment>
-                                    ));
-                                  }
-                                  if (Array.isArray(child)) {
-                                    return child.map((c, i) => (
-                                      <React.Fragment key={i}>{processChildren(c)}</React.Fragment>
-                                    ));
-                                  }
-                                  return child;
-                                };
-                                
-                                return (
-                                  <p className="text-gray-800 leading-relaxed mb-6 text-base whitespace-pre-line">
-                                    {processChildren(children)}
-                                  </p>
-                                );
-                              },
-                              img: ({src, alt}) => {
-                                const isVideo = alt === 'Video';
-                                const isEmoji = src?.includes('emoji');
-                                
-                                if (isEmoji) {
-                                  return <img src={src} alt={alt} className="inline-block w-5 h-5 mx-1" />;
-                                }
-                                
-                                if (isVideo) {
-                                  return (
-                                    <div className="relative my-6 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-                                      <img 
-                                        src={src} 
-                                        alt={alt}
-                                        className="w-full object-cover"
-                                        style={{ maxHeight: '500px' }}
-                                      />
-                                      <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="bg-black/60 backdrop-blur-sm rounded-full p-4 hover:bg-black/70 transition-colors">
-                                          <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z"/>
-                                          </svg>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                
-                                return (
-                                  <img 
-                                    src={src} 
-                                    alt={alt}
-                                    className="rounded-xl my-6 w-full object-cover shadow-lg border border-gray-100"
-                                    style={{ maxHeight: '600px' }}
-                                  />
-                                );
-                              },
-                              a: ({href, children}) => (
-                                <a 
-                                  href={href}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-200 hover:decoration-blue-400 transition-colors"
-                                >
-                                  {children}
-                                </a>
-                              ),
-                              hr: () => (
-                                <div className="my-8 flex items-center">
-                                  <div className="flex-1 border-t border-gray-200"></div>
-                                  <div className="px-4">
-                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                      <circle cx="12" cy="12" r="2"/>
-                                      <circle cx="6" cy="12" r="2"/>
-                                      <circle cx="18" cy="12" r="2"/>
-                                    </svg>
-                                  </div>
-                                  <div className="flex-1 border-t border-gray-200"></div>
-                                </div>
-                              ),
-                              strong: ({children}) => (
-                                <strong className="font-semibold text-gray-900">{children}</strong>
-                              ),
-                              em: ({children}) => {
-                                const text = String(children);
-                                if (text.includes('[视频内容]')) {
-                                  return (
-                                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-2 mb-4">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                      </svg>
-                                      <span>视频内容</span>
-                                    </div>
-                                  );
-                                }
-                                if (text.includes('.app') || text.includes('.com') || text.includes('.org')) {
-                                  return <span className="text-sm text-gray-500">{children}</span>;
-                                }
-                                return <em className="italic text-gray-700">{children}</em>;
-                              },
-                              ul: ({children}) => (
-                                <ul className="my-6 ml-6 list-disc space-y-3 text-gray-700">
-                                  {children}
-                                </ul>
-                              ),
-                              ol: ({children}) => (
-                                <ol className="my-6 ml-6 list-decimal space-y-3 text-gray-700">
-                                  {children}
-                                </ol>
-                              ),
-                              li: ({children}) => (
-                                <li className="leading-relaxed pl-2">
-                                  <span className="block">{children}</span>
-                                </li>
-                              ),
-                              code: ({children}) => (
-                                <code className="px-2 py-1 bg-gray-100 text-pink-600 rounded text-sm font-mono">
-                                  {children}
-                                </code>
-                              ),
-                              blockquote: ({children}) => (
-                                <blockquote className="border-l-4 border-blue-400 pl-4 my-6 text-gray-700 italic">
-                                  {children}
-                                </blockquote>
-                              ),
-                              h1: ({children}) => (
-                                <h1 className="text-3xl font-bold text-gray-900 mb-6 mt-8">{children}</h1>
-                              ),
-                              h2: ({children}) => (
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-6">{children}</h2>
-                              ),
-                              h3: ({children}) => (
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-4">{children}</h3>
-                              ),
-                              h4: ({children}) => (
-                                <h4 className="text-lg font-semibold text-gray-800 mb-2 mt-3">{children}</h4>
-                              ),
-                              h5: ({children}) => (
-                                <h5 className="text-base font-medium text-gray-800 mb-2 mt-2">{children}</h5>
-                              ),
-                              h6: ({children}) => (
-                                <h6 className="text-sm font-medium text-gray-700 mb-1 mt-2">{children}</h6>
-                              ),
-                            }}
-                          >
-                            {translationContent}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <div className="text-center py-12 text-gray-500">
-                          加载翻译内容中...
-                        </div>
-                      )}
-                    </div>
-                        );
-                      case 'tags':
-                        return (
-                    // 标签视图
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
-                      {/* Header - 与其他视图保持一致 */}
-                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <img
-                          src={articleContent.author.avatar}
-                          alt={articleContent.author.name}
-                          className="w-12 h-12 rounded-full"
-                        />
-                        <div>
-                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
-                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
-                        </div>
-                        <div className="ml-auto text-right">
-                          <div className="text-sm text-gray-500">
-                            AI 标签分类
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            智能识别内容标签
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Tags Content */}
-                      {loadingTags ? (
-                        <div className="flex items-center justify-center py-12">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : tagsContent ? (
-                        <div className="space-y-6">
-                          {/* 标签列表 */}
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-700 mb-3">识别的标签</h3>
-                            <div className="flex flex-wrap gap-2">
-                              {tagsContent.tags && tagsContent.tags.map((tag: string) => (
-                                <span 
-                                  key={tag}
-                                  className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          {/* 标签理由 */}
-                          {tagsContent.reasons && Object.keys(tagsContent.reasons).length > 0 && (
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-700 mb-3">分类理由</h3>
-                              <div className="space-y-2">
-                                {Object.entries(tagsContent.reasons).map(([tag, reason]) => (
-                                  <div key={tag} className="flex items-start gap-3">
-                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded font-mono">
-                                      {tag}
-                                    </span>
-                                    <span className="text-sm text-gray-600 flex-1">
-                                      {reason as string}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* 标签时间 */}
-                          <div className="pt-4 border-t border-gray-100">
-                            <div className="text-xs text-gray-400">
-                              标签生成时间: {new Date(tagsContent.taggedAt || '').toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-12 text-gray-500">
-                          <p className="mb-4">暂无标签数据</p>
-                          <button
-                            onClick={async () => {
-                              if (!selectedHistoryId) return;
-                              setLoadingTags(true);
-                              try {
-                                const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/tag`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({})
-                                });
-                                
-                                const data = await res.json();
-                                if (res.ok) {
-                                  console.log('标签任务已创建:', data.taskId);
-                                  // 等待一段时间后检查结果
-                                  setTimeout(() => {
-                                    checkTagsAvailable(selectedHistoryId);
-                                  }, 5000);
-                                } else {
-                                  console.error('创建标签任务失败:', data.error);
-                                }
-                              } catch (error) {
-                                console.error('请求失败:', error);
-                              } finally {
-                                setLoadingTags(false);
-                              }
-                            }}
-                            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
-                          >
-                            生成标签
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                        );
-                      default:
-                        return null;
-                    }
-                  })()
+                  renderContentView()
                 ) : (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h15m0 0l-3-3m3 3l-3 3m-13-3a6 6 0 1112 0 6 6 0 01-12 0z" />
-                  </svg>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    文章视图
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    选择左侧历史记录，查看连续推文的合并内容
-                  </p>
-                  <Link 
-                    href="/dashboard" 
-                    className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
-                  >
-                    前往控制台
-                    <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h15m0 0l-3-3m3 3l-3 3m-13-3a6 6 0 1112 0 6 6 0 01-12 0z" />
                     </svg>
-                  </Link>
-                </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      文章视图
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      选择左侧历史记录，查看连续推文的合并内容
+                    </p>
+                    <Link 
+                      href="/dashboard" 
+                      className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+                    >
+                      前往控制台
+                      <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  </div>
                 )}
               </div>
             </div>
