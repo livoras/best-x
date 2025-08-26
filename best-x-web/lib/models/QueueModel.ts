@@ -3,12 +3,15 @@ import Database from 'better-sqlite3';
 import { DEFAULT_SCROLLS } from '../consts';
 
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type TaskType = 'extract' | 'translate' | 'summary';
 
 export interface Task {
   id: number;
   task_id: string;
-  url: string;
-  scroll_times: number;
+  type: TaskType;  // 新增任务类型
+  url: string;  // 保留以兼容旧代码
+  scroll_times: number;  // 保留以兼容旧代码
+  params: string | null;  // JSON 格式的参数
   status: TaskStatus;
   priority: number;
   retry_count: number;
@@ -71,18 +74,40 @@ export default class QueueModel {
     return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // 添加任务到队列
+  // 添加任务到队列（保留旧方法以兼容）
   addTask(url: string, scrollTimes: number = DEFAULT_SCROLLS, userId?: string): string {
+    return this.addGenericTask('extract', { url, scrollTimes }, userId);
+  }
+  
+  // 添加通用任务到队列
+  addGenericTask(type: TaskType, params: any, userId?: string, priority: number = 0): string {
     const taskId = this.generateTaskId();
     
-    const stmt = this.db.prepare(`
-      INSERT INTO task_queue (task_id, url, scroll_times, user_id)
-      VALUES (?, ?, ?, ?)
-    `);
+    // 对于 extract 类型，保持向后兼容
+    if (type === 'extract') {
+      const stmt = this.db.prepare(`
+        INSERT INTO task_queue (task_id, type, url, scroll_times, params, user_id, priority)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(
+        taskId, 
+        type,
+        params.url || '', 
+        params.scrollTimes || DEFAULT_SCROLLS,
+        JSON.stringify(params),
+        userId || null,
+        priority
+      );
+    } else {
+      // 其他类型的任务
+      const stmt = this.db.prepare(`
+        INSERT INTO task_queue (task_id, type, params, user_id, priority, url, scroll_times)
+        VALUES (?, ?, ?, ?, ?, '', 0)
+      `);
+      stmt.run(taskId, type, JSON.stringify(params), userId || null, priority);
+    }
     
-    stmt.run(taskId, url, scrollTimes, userId || null);
-    
-    console.log(`📝 任务已入队: ${taskId} - ${url}`);
+    console.log(`📝 ${type} 任务已入队: ${taskId}`);
     return taskId;
   }
 

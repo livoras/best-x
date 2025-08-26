@@ -103,5 +103,20 @@ export const migrations: MigrationScript[] = [
       'DROP INDEX IF EXISTS idx_task_id',
       'DROP INDEX IF EXISTS idx_task_created'
     ]
+  },
+  {
+    name: '008_add_params_to_task_queue',
+    up: [
+      // 添加 params 列存储 JSON 格式的参数（type 列已经存在）
+      "ALTER TABLE task_queue ADD COLUMN params TEXT",
+      // 将现有的 url 和 scroll_times 迁移到 params
+      `UPDATE task_queue 
+       SET params = json_object('url', url, 'scrollTimes', scroll_times) 
+       WHERE type = 'extract' AND url IS NOT NULL`
+    ],
+    down: [
+      // SQLite 不支持 DROP COLUMN，需要重建表
+      // 注意：这里简化了回滚，实际生产环境需要更复杂的处理
+    ]
   }
 ];
