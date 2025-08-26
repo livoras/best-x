@@ -33,8 +33,9 @@
                      │
 ┌────────────────────▼───────────────────────────────────┐
 │            Task Handler Factory                         │
-├──────────────────────────────────────────────────────── │
-│  ExtractTaskHandler │ TranslateTaskHandler │ Summary... │
+├─────────────────────────────────────────────────────────┤
+│  ExtractTaskHandler │ TranslateTaskHandler │ TagHandler │
+│  SummaryTaskHandler │ (可扩展...)          │            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -126,7 +127,7 @@ CREATE TABLE task_queue (
 
 **处理流程**:
 1. 从 `extractions` 表获取原文内容
-2. 调用 Claude API 进行翻译
+2. 调用 Claude API (Opus模型) 进行翻译
 3. 保存翻译结果到文件系统
 4. 将完整翻译内容存储在 `progress_message` 中
 
@@ -147,6 +148,44 @@ CREATE TABLE task_queue (
     "style": "brief"
 }
 ```
+
+### 4. Tag 任务（AI标签分类）
+
+**处理器**: `TagTaskHandler`
+
+**参数结构**:
+```json
+{
+    "extractionId": 113
+}
+```
+
+**处理流程**:
+1. 从 `extractions` 表获取Markdown内容
+2. 调用 Claude API (Sonnet模型) 进行标签分类
+3. 基于预定义标签体系进行智能匹配
+4. 返回标签列表和分类理由
+
+**结果存储**:
+- 数据库: `progress_message` 字段包含标签和理由的JSON结果
+```json
+{
+    "extractionId": 113,
+    "tags": ["tech_share", "ai_ml", "tutorial"],
+    "reasons": {
+        "tech_share": "分享技术实现经验",
+        "ai_ml": "涉及AI相关内容",
+        "tutorial": "包含教程指南"
+    },
+    "taggedAt": "2025-08-26T07:34:57.013Z"
+}
+```
+
+**预定义标签体系** (`lib/tagConfig.ts`):
+- **内容类型**: tech_share, news, tutorial, opinion, announcement, discussion, resource, case_study
+- **技术领域**: ai_ml, web_dev, mobile, backend, devops, security, database, frontend
+- **难度级别**: beginner, intermediate, advanced, expert
+- **内容特征**: with_code, with_demo, theoretical, practical, controversial, trending, evergreen
 
 ## API 端点
 
@@ -189,6 +228,15 @@ CREATE TABLE task_queue (
     "targetLang": "英语"
 }
 ```
+
+#### GET /api/extractions/:id/translation
+获取翻译内容结果
+
+#### POST /api/extractions/:id/tag
+为指定提取记录创建标签分类任务
+
+#### GET /api/extractions/:id/tags
+获取标签分类结果
 
 #### GET /api/extractions/:id/article-markdown
 获取 Markdown 格式的文章内容
@@ -259,26 +307,257 @@ CREATE TABLE task_queue (
 
 ## 扩展性设计
 
-### 添加新任务类型
+### 添加新任务类型 - 标准操作流程(SOP)
 
-1. 在 `TaskType` 中添加新类型
-2. 实现新的 `TaskHandler` 类
-3. 在 `TaskHandlerFactory` 中注册
-4. 更新 API 路由支持新类型
+#### 步骤1: 后端任务处理器实现
 
-示例：添加 "analyze" 任务
+**文件**: `lib/taskHandlers.ts`
+
 ```typescript
-// 1. 定义处理器
-export class AnalyzeTaskHandler implements TaskHandler {
-    async execute(params: any) {
-        // 实现分析逻辑
-        return { analysis: "..." };
-    }
+// 1. 创建新的任务处理器类
+export class NewTaskHandler implements TaskHandler {
+  private db: DB;
+  
+  constructor(db: DB) {
+    this.db = db;
+  }
+  
+  async execute(params: { extractionId: number, [key: string]: any }) {
+    console.log(`🔧 开始新任务: 提取记录 #${params.extractionId}`);
+    
+    // 获取数据
+    const extractionsModel = ExtractionsModel.getInstance();
+    const content = extractionsModel.getPostContentAsMarkdown(params.extractionId);
+    
+    // 处理逻辑
+    const result = await processTask(content);
+    
+    // 返回结果（存储在progress_message中）
+    return {
+      extractionId: params.extractionId,
+      result: result,
+      processedAt: new Date().toISOString()
+    };
+  }
 }
 
-// 2. 注册到工厂
-this.handlers.set('analyze', new AnalyzeTaskHandler(db));
+// 2. 在TaskHandlerFactory注册
+this.handlers.set('newtask', new NewTaskHandler(db));
 ```
+
+#### 步骤2: 更新类型定义
+
+**文件1**: `lib/models/QueueModel.ts`
+```typescript
+export type TaskType = 'extract' | 'translate' | 'summary' | 'tag' | 'newtask';
+```
+
+**文件2**: `components/Dashboard.tsx`
+```typescript
+interface Task {
+  type?: 'extract' | 'translate' | 'summary' | 'tag' | 'newtask';
+  // ...
+}
+```
+
+**文件3**: `app/dashboard/page.tsx`
+```typescript
+interface Task {
+  type?: 'extract' | 'translate' | 'summary' | 'tag' | 'newtask';
+  params?: string;  // 确保包含params字段
+  // ...
+}
+```
+
+#### 步骤3: 添加API端点
+
+**文件**: `routes/extractionRoutes.ts`
+
+```typescript
+// 创建任务端点
+router.post('/:id/newtask', async (req: Request, res: Response) => {
+  try {
+    const extractionId = parseInt(req.params.id);
+    
+    // 检查提取记录存在
+    const db = DB.getInstance();
+    const extraction = db.getDB()
+      .prepare('SELECT id FROM extractions WHERE id = ?')
+      .get(extractionId);
+    
+    if (!extraction) {
+      return res.status(404).json({ error: '提取记录不存在' });
+    }
+    
+    // 创建任务
+    const taskParams = {
+      extractionId,
+      ...req.body  // 其他参数
+    };
+    
+    const taskId = queueModel.addGenericTask('newtask', taskParams);
+    
+    res.json({
+      taskId,
+      status: 'queued',
+      message: '任务已加入队列'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 获取结果端点
+router.get('/:id/newtask-result', async (req: Request, res: Response) => {
+  try {
+    const extractionId = parseInt(req.params.id);
+    
+    const db = DB.getInstance();
+    const task = db.getDB().prepare(`
+      SELECT task_id, status, progress_message, completed_at
+      FROM task_queue
+      WHERE type = 'newtask' 
+        AND params LIKE ? 
+        AND status = 'completed'
+      ORDER BY completed_at DESC
+      LIMIT 1
+    `).get(`%"extractionId":${extractionId}%`) as any;
+    
+    if (!task) {
+      return res.status(404).json({ error: '未找到结果' });
+    }
+    
+    const result = JSON.parse(task.progress_message);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+```
+
+#### 步骤4: 前端集成
+
+**文件**: `app/[[...slug]]/page.tsx`
+
+```typescript
+// 1. 添加状态管理
+const [newTaskContent, setNewTaskContent] = useState<any>(null);
+const [loadingNewTask, setLoadingNewTask] = useState(false);
+const [hasNewTask, setHasNewTask] = useState(false);
+
+// 2. 更新activeTab类型
+const [activeTab, setActiveTab] = useState<'translation' | 'article' | 'markdown' | 'rendered' | 'tags' | 'newtask'>('article');
+
+// 3. 检查功能可用性
+const checkNewTaskAvailable = async (extractionId: number) => {
+  try {
+    const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/newtask-result`);
+    setHasNewTask(res.ok);
+    if (res.ok) {
+      const data = await res.json();
+      setNewTaskContent(data);
+    }
+  } catch (err) {
+    setHasNewTask(false);
+  }
+};
+
+// 4. 加载历史记录时检查
+// 在loadHistoryItem函数中添加:
+checkNewTaskAvailable(id);
+
+// 5. 添加操作按钮（在历史记录列表中）
+<button
+  onClick={async (e) => {
+    e.stopPropagation();
+    const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/newtask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    // 处理响应
+  }}
+  className="px-2 py-0.5 text-xs bg-[color] hover:bg-[color] text-[color] rounded"
+>
+  🔧 新任务
+</button>
+
+// 6. 添加Tab和内容显示
+{hasNewTask && (
+  <button onClick={() => setActiveTab('newtask')}>新任务</button>
+)}
+
+// 在switch语句中添加case
+case 'newtask':
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-6">
+      {/* 新任务内容显示 */}
+    </div>
+  );
+```
+
+#### 步骤5: Dashboard任务显示
+
+**文件**: `components/Dashboard.tsx`
+
+```typescript
+// 在getTaskTypeDisplay()函数中添加
+case 'newtask':
+  return { label: '新任务', color: 'bg-[color]-100 text-[color]-700', icon: '🔧' };
+
+// 任务描述显示
+task.type === 'newtask' && taskParams.extractionId
+  ? `#${taskParams.extractionId} 新任务处理`
+  : ...
+
+// 完成结果显示
+else if (task.type === 'newtask') {
+  return (
+    <div className="text-xs text-green-600 mt-1">
+      ✅ 新任务已完成
+    </div>
+  );
+}
+```
+
+#### 检查清单
+
+- [ ] **后端实现**
+  - [ ] TaskHandler类实现 (`lib/taskHandlers.ts`)
+  - [ ] TaskHandlerFactory注册
+  - [ ] TaskType类型更新 (`lib/models/QueueModel.ts`)
+  
+- [ ] **API端点**
+  - [ ] POST创建任务端点 (`routes/extractionRoutes.ts`)
+  - [ ] GET获取结果端点
+  
+- [ ] **前端集成**
+  - [ ] 状态管理变量 (`app/[[...slug]]/page.tsx`)
+  - [ ] activeTab类型扩展
+  - [ ] 检查和获取函数
+  - [ ] 历史记录按钮
+  - [ ] Tab组件
+  - [ ] 内容显示组件
+  
+- [ ] **Dashboard支持**
+  - [ ] Task接口类型更新 (`components/Dashboard.tsx`, `app/dashboard/page.tsx`)
+  - [ ] 任务类型显示逻辑
+  - [ ] 任务描述格式
+  - [ ] 完成结果展示
+  
+- [ ] **测试验证**
+  - [ ] 创建任务API测试
+  - [ ] 任务执行验证
+  - [ ] 结果获取测试
+  - [ ] UI显示正确
+
+#### 注意事项
+
+1. **命名规范**：保持一致的命名模式（如 `newtask`, `newTaskContent`, `checkNewTaskAvailable`）
+2. **错误处理**：所有async函数都要包含try-catch
+3. **单例模式**：使用 `DB.getInstance()` 和 `ExtractionsModel.getInstance()`
+4. **数据存储**：任务结果存储在 `progress_message` 字段（JSON格式）
+5. **UI一致性**：按钮样式、Tab样式、加载状态保持与现有组件一致
 
 ### 任务链支持
 
