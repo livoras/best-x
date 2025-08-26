@@ -128,6 +128,50 @@ export default function Home({ params: paramsPromise }: PageProps) {
     return tmp.textContent || tmp.innerText || '';
   };
   
+  // 格式化推文时间为 YYYY/MM/DD HH:mm
+  const formatTweetTime = (timeStr: string | undefined) => {
+    if (!timeStr) return '';
+    
+    // Twitter 时间格式示例: "下午12:25 · 2025年8月23日" 或 "12:25 PM · Aug 23, 2025"
+    // 提取日期和时间部分
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(上午|下午|AM|PM)?\s*·\s*(\d{4})年?(\d{1,2})月?(\d{1,2})/);
+    const englishMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?\s*·\s*(\w+)\s+(\d{1,2}),\s*(\d{4})/);
+    
+    if (match) {
+      // 中文格式
+      let [_, hour, minute, period, year, month, day] = match;
+      let h = parseInt(hour);
+      
+      if (period === '下午' || period === 'PM') {
+        if (h !== 12) h += 12;
+      } else if ((period === '上午' || period === 'AM') && h === 12) {
+        h = 0;
+      }
+      
+      return `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')} ${h.toString().padStart(2, '0')}:${minute}`;
+    } else if (englishMatch) {
+      // 英文格式
+      let [_, hour, minute, period, monthStr, day, year] = englishMatch;
+      let h = parseInt(hour);
+      
+      if (period === 'PM' && h !== 12) h += 12;
+      else if (period === 'AM' && h === 12) h = 0;
+      
+      const months: { [key: string]: string } = {
+        'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+        'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+        'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+      };
+      
+      const month = months[monthStr] || '01';
+      
+      return `${year}/${month}/${day.padStart(2, '0')} ${h.toString().padStart(2, '0')}:${minute}`;
+    }
+    
+    // 如果无法解析，返回原始字符串
+    return timeStr;
+  };
+  
   // 队列状态 - 仅用于检测新任务完成
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({
     summary: { pending: 0, processing: 0, completed: 0, failed: 0 },
@@ -372,13 +416,13 @@ export default function Home({ params: paramsPromise }: PageProps) {
           <nav className="flex gap-4 items-center">
             <Link 
               href="/" 
-              className="text-sm font-medium text-blue-600 flex items-center border-b-2 border-blue-600"
+              className="text-sm font-medium text-blue-600 flex items-center border-b-2 border-blue-600 cursor-pointer"
             >
               主页
             </Link>
             <Link 
               href="/dashboard" 
-              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1.5 border-b-2 border-transparent"
+              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1.5 border-b-2 border-transparent cursor-pointer"
             >
               控制台
               {queueStatus.summary.processing > 0 && (
@@ -538,12 +582,12 @@ export default function Home({ params: paramsPromise }: PageProps) {
                           <div className="flex-1 min-w-0">
                             {/* Author info */}
                             <div className="flex items-baseline gap-1 flex-wrap">
-                              <span className="font-bold text-gray-900 hover:underline">
+                              <span className="font-bold text-gray-900 hover:underline cursor-pointer">
                                 {tweet.author.name}
                               </span>
                               <span className="text-gray-500 text-sm">{tweet.author.handle}</span>
                               <span className="text-gray-400">·</span>
-                              <span className="text-gray-500 text-sm hover:underline">{tweet.time}</span>
+                              <span className="text-gray-500 text-sm hover:underline cursor-pointer">{formatTweetTime(tweet.time)}</span>
                             </div>
                             
                             {/* Tweet content */}
@@ -703,7 +747,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                 <div className="flex border-b border-gray-200 bg-white px-6 pt-4">
                   <button
                     onClick={() => setActiveTab('article')}
-                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'article'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -716,7 +760,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       setActiveTab('markdown');
                       fetchMarkdownContent();
                     }}
-                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'markdown'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -729,7 +773,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       setActiveTab('rendered');
                       fetchMarkdownContent();
                     }}
-                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'rendered'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -743,7 +787,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                         setActiveTab('translation');
                         fetchTranslationContent();
                       }}
-                      className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                      className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
                         activeTab === 'translation'
                           ? 'border-blue-500 text-blue-600'
                           : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -786,10 +830,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                         {articleContent.tweetCount} 条连续推文
                       </div>
                       <div className="text-xs text-gray-400">
-                        {articleContent.tweets[0]?.time}
-                        {articleContent.tweetCount > 1 && 
-                          articleContent.tweets[articleContent.tweetCount - 1]?.time !== articleContent.tweets[0]?.time && 
-                          ` - ${articleContent.tweets[articleContent.tweetCount - 1]?.time}`}
+                        {formatTweetTime(articleContent.tweets[0]?.time)}
                       </div>
                     </div>
                   </div>
@@ -883,7 +924,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                         {/* Time stamp for multiple tweets */}
                         {articleContent.tweetCount > 1 && (
                           <div className="text-xs text-gray-400 mt-2">
-                            {tweet.time}
+                            {formatTweetTime(tweet.time)}
                           </div>
                         )}
                       </div>
@@ -935,8 +976,29 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       case 'markdown':
                         return (
                     // Markdown 视图
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
-                      {/* Header with copy button - 与文章视图保持一致 */}
+                    <div className="bg-white rounded-xl border border-gray-100 p-6 relative">
+                      {/* 复制按钮 - 绝对定位在右上角 */}
+                      <button
+                        onClick={copyMarkdown}
+                        className={`absolute top-2 right-2 p-1.5 rounded-full transition-all z-10 ${
+                          markdownCopied 
+                            ? 'bg-green-100 text-green-600' 
+                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                        }`}
+                        title={markdownCopied ? '已复制' : '复制全部'}
+                      >
+                        {markdownCopied ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                      
+                      {/* Header - 不受按钮影响 */}
                       <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                         <img
                           src={articleContent.author.avatar}
@@ -947,41 +1009,14 @@ export default function Home({ params: paramsPromise }: PageProps) {
                           <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
                           <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
                         </div>
-                        <div className="ml-auto text-right mr-4">
+                        <div className="ml-auto text-right pr-8">
                           <div className="text-sm text-gray-500">
                             {articleContent.tweetCount} 条连续推文
                           </div>
                           <div className="text-xs text-gray-400">
-                            {articleContent.tweets[0]?.time}
-                            {articleContent.tweetCount > 1 && 
-                              articleContent.tweets[articleContent.tweetCount - 1]?.time !== articleContent.tweets[0]?.time && 
-                              ` - ${articleContent.tweets[articleContent.tweetCount - 1]?.time}`}
+                            {formatTweetTime(articleContent.tweets[0]?.time)}
                           </div>
                         </div>
-                        <button
-                          onClick={copyMarkdown}
-                          className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            markdownCopied 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {markdownCopied ? (
-                            <>
-                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              已复制
-                            </>
-                          ) : (
-                            <>
-                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                              复制全部
-                            </>
-                          )}
-                        </button>
                       </div>
                       
                       {/* Markdown Content */}
@@ -1015,15 +1050,12 @@ export default function Home({ params: paramsPromise }: PageProps) {
                           <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
                           <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
                         </div>
-                        <div className="ml-auto text-right">
+                        <div className="ml-auto text-right pr-8">
                           <div className="text-sm text-gray-500">
                             {articleContent.tweetCount} 条连续推文
                           </div>
                           <div className="text-xs text-gray-400">
-                            {articleContent.tweets[0]?.time}
-                            {articleContent.tweetCount > 1 && 
-                              articleContent.tweets[articleContent.tweetCount - 1]?.time !== articleContent.tweets[0]?.time && 
-                              ` - ${articleContent.tweets[articleContent.tweetCount - 1]?.time}`}
+                            {formatTweetTime(articleContent.tweets[0]?.time)}
                           </div>
                         </div>
                       </div>
@@ -1213,8 +1245,29 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       case 'translation':
                         return (
                     // 翻译视图
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
-                      {/* Header - 与其他视图保持一致 */}
+                    <div className="bg-white rounded-xl border border-gray-100 p-6 relative">
+                      {/* 复制按钮 - 绝对定位在右上角 */}
+                      <button
+                        onClick={copyTranslation}
+                        className={`absolute top-2 right-2 p-1.5 rounded-full transition-all z-10 ${
+                          translationCopied 
+                            ? 'bg-green-100 text-green-600' 
+                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                        }`}
+                        title={translationCopied ? '已复制' : '复制翻译'}
+                      >
+                        {translationCopied ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                      
+                      {/* Header - 不受按钮影响 */}
                       <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                         <img
                           src={articleContent.author.avatar}
@@ -1225,7 +1278,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                           <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
                           <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
                         </div>
-                        <div className="ml-auto text-right mr-4">
+                        <div className="ml-auto text-right pr-8">
                           <div className="text-sm text-gray-500">
                             翻译内容
                           </div>
@@ -1233,30 +1286,6 @@ export default function Home({ params: paramsPromise }: PageProps) {
                             目标语言：中文
                           </div>
                         </div>
-                        <button
-                          onClick={copyTranslation}
-                          className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            translationCopied 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {translationCopied ? (
-                            <>
-                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              已复制
-                            </>
-                          ) : (
-                            <>
-                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                              复制全部
-                            </>
-                          )}
-                        </button>
                       </div>
                       
                       {/* Translation Content */}
