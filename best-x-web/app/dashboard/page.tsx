@@ -8,7 +8,9 @@ import { DEFAULT_SCROLLS } from '@/lib/consts';
 // 任务接口
 interface Task {
   task_id: string;
+  type?: 'extract' | 'translate' | 'summary' | 'tag';  // 任务类型
   url: string;
+  params?: string;  // JSON格式的参数
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress?: number;
   message?: string;

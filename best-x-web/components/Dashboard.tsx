@@ -6,7 +6,7 @@ import { MAX_SCROLLS } from '@/lib/consts';
 // 任务接口
 interface Task {
   task_id: string;
-  type?: 'extract' | 'translate' | 'summary';  // 任务类型
+  type?: 'extract' | 'translate' | 'summary' | 'tag';  // 任务类型
   url: string;
   params?: string;  // JSON格式的参数
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -294,6 +294,8 @@ export default function Dashboard({
                       return { label: '翻译', color: 'bg-purple-100 text-purple-700', icon: '🌐' };
                     case 'summary':
                       return { label: '摘要', color: 'bg-yellow-100 text-yellow-700', icon: '📝' };
+                    case 'tag':
+                      return { label: '标签', color: 'bg-green-100 text-green-700', icon: '🏷️' };
                     default:
                       return { label: '任务', color: 'bg-gray-100 text-gray-700', icon: '📋' };
                   }
@@ -326,6 +328,8 @@ export default function Dashboard({
                           <span className="text-sm text-gray-700 truncate flex-1">
                             {task.type === 'translate' && taskParams.extractionId 
                               ? `#${taskParams.extractionId} → ${taskParams.targetLang || '中文'}`
+                              : task.type === 'tag' && taskParams.extractionId
+                              ? `#${taskParams.extractionId} 标签分类`
                               : task.url || '无URL'}
                           </span>
                         </div>
@@ -362,6 +366,12 @@ export default function Dashboard({
                                 {result.outputFile && (
                                   <span className="text-gray-500"> • 保存至: {result.outputFile.split('/').pop()}</span>
                                 )}
+                              </div>
+                            );
+                          } else if (task.type === 'tag') {
+                            return (
+                              <div className="text-xs text-green-600 mt-1">
+                                ✅ 已生成标签: {result.tags ? result.tags.join(', ') : ''}
                               </div>
                             );
                           }

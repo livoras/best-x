@@ -102,9 +102,9 @@ export default class QueueModel {
       // 其他类型的任务
       const stmt = this.db.prepare(`
         INSERT INTO task_queue (task_id, type, params, user_id, priority, url, scroll_times)
-        VALUES (?, ?, ?, ?, ?, '', 0)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
-      stmt.run(taskId, type, JSON.stringify(params), userId || null, priority);
+      stmt.run(taskId, type, JSON.stringify(params), userId || null, priority, '', 0);
     }
     
     console.log(`📝 ${type} 任务已入队: ${taskId}`);

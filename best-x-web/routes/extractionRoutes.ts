@@ -159,6 +159,92 @@ export function createExtractionRoutes(
     }
   });
 
+  // 创建标签任务
+  router.post('/:id/tag', async (req: Request, res: Response) => {
+    try {
+      const extractionId = parseInt(req.params.id);
+      
+      // 检查提取记录是否存在
+      const db = DB.getInstance();
+      const extraction = db.getDB()
+        .prepare('SELECT id FROM extractions WHERE id = ?')
+        .get(extractionId);
+      
+      if (!extraction) {
+        return res.status(404).json({ error: '提取记录不存在' });
+      }
+      
+      // 创建标签任务
+      const taskParams = {
+        extractionId
+      };
+      
+      const taskId = queueModel.addGenericTask('tag', taskParams);
+      
+      console.log(`📥 创建标签任务: 记录 #${extractionId}`);
+      
+      res.json({
+        taskId,
+        status: 'queued',
+        message: '标签任务已加入队列'
+      });
+      
+    } catch (error: any) {
+      console.error('创建标签任务失败:', error);
+      res.status(500).json({ error: error.message || '创建标签任务失败' });
+    }
+  });
+
+  // 获取标签结果
+  router.get('/:id/tags', async (req: Request, res: Response) => {
+    try {
+      const extractionId = parseInt(req.params.id);
+      
+      // 查询最新的标签任务结果
+      const db = DB.getInstance();
+      const tagTask = db.getDB().prepare(`
+        SELECT task_id, status, progress_message, completed_at
+        FROM task_queue
+        WHERE type = 'tag' 
+          AND params LIKE ? 
+          AND status = 'completed'
+        ORDER BY completed_at DESC
+        LIMIT 1
+      `).get(`%"extractionId":${extractionId}%`) as any;
+      
+      if (!tagTask) {
+        return res.status(404).json({ 
+          error: '没有找到标签结果',
+          message: '可能标签任务还在处理中或尚未创建' 
+        });
+      }
+      
+      // 解析标签结果
+      let tagData = null;
+      try {
+        const progressMessage = JSON.parse(tagTask.progress_message);
+        tagData = {
+          tags: progressMessage.tags || [],
+          reasons: progressMessage.reasons || {},
+          taggedAt: progressMessage.taggedAt || tagTask.completed_at
+        };
+      } catch (e) {
+        console.error('解析标签数据失败:', e);
+        return res.status(500).json({ error: '标签数据格式错误' });
+      }
+      
+      res.json({
+        extractionId,
+        taskId: tagTask.task_id,
+        ...tagData
+      });
+      
+    } catch (error: any) {
+      console.error('获取标签失败:', error);
+      res.status(500).json({ error: error.message || '获取标签失败' });
+    }
+  });
+
   // 删除提取记录
   router.delete('/:id', (req: Request, res: Response) => {
     try {

@@ -102,7 +102,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
   const [copied, setCopied] = useState(false);
   
   // Tab 切换和 Markdown 内容状态
-  const [activeTab, setActiveTab] = useState<'translation' | 'article' | 'markdown' | 'rendered'>('article');
+  const [activeTab, setActiveTab] = useState<'translation' | 'article' | 'markdown' | 'rendered' | 'tags'>('article');
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [loadingMarkdown, setLoadingMarkdown] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
@@ -112,6 +112,11 @@ export default function Home({ params: paramsPromise }: PageProps) {
   const [loadingTranslation, setLoadingTranslation] = useState(false);
   const [translationCopied, setTranslationCopied] = useState(false);
   const [hasTranslation, setHasTranslation] = useState(false);
+  
+  // 标签内容状态
+  const [tagsContent, setTagsContent] = useState<any>(null);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [hasTags, setHasTags] = useState(false);
   
   // 快速提取模态框状态
   const [showQuickExtract, setShowQuickExtract] = useState(false);
@@ -228,10 +233,13 @@ export default function Home({ params: paramsPromise }: PageProps) {
       setMarkdownContent(null);
       setTranslationContent(null);
       setHasTranslation(false);
+      setTagsContent(null);
+      setHasTags(false);
       setActiveTab('article');
       
-      // 检查是否有翻译
+      // 检查是否有翻译和标签
       checkTranslationAvailable(id);
+      checkTagsAvailable(id);
     } catch (err: any) {
       setError(err.message || '加载历史记录失败');
       setArticleContent(null);
@@ -331,6 +339,20 @@ export default function Home({ params: paramsPromise }: PageProps) {
     }
   };
   
+  // 检查是否有标签可用
+  const checkTagsAvailable = async (extractionId: number) => {
+    try {
+      const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/tags`);
+      setHasTags(res.ok);
+      if (res.ok) {
+        const data = await res.json();
+        setTagsContent(data);
+      }
+    } catch (err) {
+      setHasTags(false);
+    }
+  };
+  
   // 获取翻译内容
   const fetchTranslationContent = async () => {
     if (!selectedHistoryId || translationContent) return;
@@ -346,6 +368,24 @@ export default function Home({ params: paramsPromise }: PageProps) {
       console.error('Failed to fetch translation:', err);
     } finally {
       setLoadingTranslation(false);
+    }
+  };
+  
+  // 获取标签内容
+  const fetchTagsContent = async () => {
+    if (!selectedHistoryId || tagsContent) return;
+    
+    setLoadingTags(true);
+    try {
+      const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/tags`);
+      if (res.ok) {
+        const data = await res.json();
+        setTagsContent(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch tags:', err);
+    } finally {
+      setLoadingTags(false);
     }
   };
 
@@ -512,33 +552,63 @@ export default function Home({ params: paramsPromise }: PageProps) {
                           <span>{item.tweet_count} 条推文</span>
                           <span>{new Date(item.extract_time).toLocaleDateString()}</span>
                         </div>
-                        {/* 翻译按钮 */}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation(); // 防止触发loadHistoryItem
-                            try {
-                              const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/translate`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetLang: '中文' })
-                              });
-                              
-                              const data = await res.json();
-                              if (res.ok) {
-                                console.log('翻译任务已创建:', data.taskId);
-                                // 可以显示一个提示消息
-                              } else {
-                                console.error('创建翻译任务失败:', data.error);
+                        {/* 按钮组 */}
+                        <div className="flex items-center gap-1">
+                          {/* 翻译按钮 */}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation(); // 防止触发loadHistoryItem
+                              try {
+                                const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/translate`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ targetLang: '中文' })
+                                });
+                                
+                                const data = await res.json();
+                                if (res.ok) {
+                                  console.log('翻译任务已创建:', data.taskId);
+                                  // 可以显示一个提示消息
+                                } else {
+                                  console.error('创建翻译任务失败:', data.error);
+                                }
+                              } catch (error) {
+                                console.error('请求失败:', error);
                               }
-                            } catch (error) {
-                              console.error('请求失败:', error);
-                            }
-                          }}
-                          className="px-2 py-0.5 text-xs bg-purple-50 hover:bg-purple-100 text-purple-600 rounded transition-colors"
-                          title="翻译为中文"
-                        >
-                          🌐 翻译
-                        </button>
+                            }}
+                            className="px-2 py-0.5 text-xs bg-purple-50 hover:bg-purple-100 text-purple-600 rounded transition-colors"
+                            title="翻译为中文"
+                          >
+                            🌐 翻译
+                          </button>
+                          
+                          {/* 标签按钮 */}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const res = await fetch(`http://localhost:3001/api/extractions/${item.id}/tag`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({})
+                                });
+                                
+                                const data = await res.json();
+                                if (res.ok) {
+                                  console.log('标签任务已创建:', data.taskId);
+                                } else {
+                                  console.error('创建标签任务失败:', data.error);
+                                }
+                              } catch (error) {
+                                console.error('请求失败:', error);
+                              }
+                            }}
+                            className="px-2 py-0.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded transition-colors"
+                            title="AI 标签分类"
+                          >
+                            🏷️ 标签
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -768,6 +838,21 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       }`}
                     >
                       翻译
+                    </button>
+                  )}
+                  {hasTags && (
+                    <button
+                      onClick={() => {
+                        setActiveTab('tags');
+                        fetchTagsContent();
+                      }}
+                      className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
+                        activeTab === 'tags'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      标签
                     </button>
                   )}
                   <button
@@ -1464,6 +1549,117 @@ export default function Home({ params: paramsPromise }: PageProps) {
                       ) : (
                         <div className="text-center py-12 text-gray-500">
                           加载翻译内容中...
+                        </div>
+                      )}
+                    </div>
+                        );
+                      case 'tags':
+                        return (
+                    // 标签视图
+                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                      {/* Header - 与其他视图保持一致 */}
+                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                        <img
+                          src={articleContent.author.avatar}
+                          alt={articleContent.author.name}
+                          className="w-12 h-12 rounded-full"
+                        />
+                        <div>
+                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
+                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
+                        </div>
+                        <div className="ml-auto text-right">
+                          <div className="text-sm text-gray-500">
+                            AI 标签分类
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            智能识别内容标签
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Tags Content */}
+                      {loadingTags ? (
+                        <div className="flex items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        </div>
+                      ) : tagsContent ? (
+                        <div className="space-y-6">
+                          {/* 标签列表 */}
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-700 mb-3">识别的标签</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {tagsContent.tags && tagsContent.tags.map((tag: string) => (
+                                <span 
+                                  key={tag}
+                                  className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* 标签理由 */}
+                          {tagsContent.reasons && Object.keys(tagsContent.reasons).length > 0 && (
+                            <div>
+                              <h3 className="text-sm font-medium text-gray-700 mb-3">分类理由</h3>
+                              <div className="space-y-2">
+                                {Object.entries(tagsContent.reasons).map(([tag, reason]) => (
+                                  <div key={tag} className="flex items-start gap-3">
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded font-mono">
+                                      {tag}
+                                    </span>
+                                    <span className="text-sm text-gray-600 flex-1">
+                                      {reason as string}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 标签时间 */}
+                          <div className="pt-4 border-t border-gray-100">
+                            <div className="text-xs text-gray-400">
+                              标签生成时间: {new Date(tagsContent.taggedAt || '').toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          <p className="mb-4">暂无标签数据</p>
+                          <button
+                            onClick={async () => {
+                              if (!selectedHistoryId) return;
+                              setLoadingTags(true);
+                              try {
+                                const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/tag`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({})
+                                });
+                                
+                                const data = await res.json();
+                                if (res.ok) {
+                                  console.log('标签任务已创建:', data.taskId);
+                                  // 等待一段时间后检查结果
+                                  setTimeout(() => {
+                                    checkTagsAvailable(selectedHistoryId);
+                                  }, 5000);
+                                } else {
+                                  console.error('创建标签任务失败:', data.error);
+                                }
+                              } catch (error) {
+                                console.error('请求失败:', error);
+                              } finally {
+                                setLoadingTags(false);
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
+                          >
+                            生成标签
+                          </button>
                         </div>
                       )}
                     </div>

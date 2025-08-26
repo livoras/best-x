@@ -2,6 +2,8 @@ import { getXPost } from '../../get-post';
 import { translatePost } from '../../translate-post';
 import { ExtractionsModel } from './models/ExtractionsModel';
 import { DB } from './DB';
+import { claude } from 'claude-code-sdk-ts2';
+import { formatTagsForPrompt, getAllTags } from './tagConfig';
 
 // 任务处理器接口
 export interface TaskHandler {
@@ -91,6 +93,106 @@ export class SummaryTaskHandler implements TaskHandler {
   }
 }
 
+// Tag 任务处理器 - AI 自动标签分类
+export class TagTaskHandler implements TaskHandler {
+  private db: DB;
+  
+  constructor(db: DB) {
+    this.db = db;
+  }
+  
+  async execute(params: { extractionId: number }) {
+    console.log(`🏷️ 开始标签任务: 提取记录 #${params.extractionId}`);
+    
+    // 1. 获取提取记录的内容
+    const extractionsModel = ExtractionsModel.getInstance();
+    const markdownArticle = extractionsModel.getPostContentAsMarkdown(params.extractionId);
+    
+    if (!markdownArticle) {
+      throw new Error(`提取记录 #${params.extractionId} 不存在或没有内容`);
+    }
+    
+    // 2. 准备内容 - 使用 markdown 内容
+    const content = markdownArticle.markdown || '';
+    
+    // 限制内容长度，避免 token 过多
+    const maxContentLength = 8000;
+    if (content.length > maxContentLength) {
+      content = content.substring(0, maxContentLength) + '...';
+    }
+    
+    // 3. 准备标签分析 prompt
+    const prompt = `分析以下内容并打上合适的标签。
+
+可用标签列表：
+${formatTagsForPrompt()}
+
+要求：
+1. 只能从上述预定义标签中选择，不要创造新标签
+2. 每个类别最多选择 2 个最相关的标签
+3. 总共选择 3-8 个标签
+4. 返回 JSON 格式，包含标签 key 和选择理由
+
+返回格式示例：
+{
+  "tags": ["tech_share", "ai_ml", "advanced", "with_code"],
+  "reasons": {
+    "tech_share": "内容是关于技术实现的分享",
+    "ai_ml": "讨论了AI模型相关内容",
+    "advanced": "涉及较深入的技术细节",
+    "with_code": "包含代码示例"
+  }
+}
+
+待分析内容：
+${content}`;
+
+    console.log(`🤖 调用 Claude 进行标签分析...`);
+    const startTime = Date.now();
+    
+    try {
+      // 4. 调用 Claude 分析
+      const response = await claude()
+        .withModel('sonnet')  // 使用 Sonnet，准确性和速度平衡
+        .skipPermissions()
+        .query(prompt)
+        .asText();
+      
+      
+      // 5. 解析响应
+      let result;
+      try {
+        // 提取 JSON 部分（处理可能的额外文本）
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('响应中没有找到有效的 JSON');
+        }
+      } catch (parseError) {
+        console.error('解析标签响应失败:', parseError);
+        throw new Error('标签分析响应格式错误');
+      }
+      
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ 标签分析完成 (耗时 ${duration}秒)`);
+      console.log(`📊 识别标签: ${result.tags.join(', ')}`);
+      
+      // 6. 返回结果
+      return {
+        extractionId: params.extractionId,
+        tags: result.tags,
+        reasons: result.reasons,
+        taggedAt: new Date().toISOString()
+      };
+      
+    } catch (error: any) {
+      console.error(`❌ 标签分析失败:`, error.message);
+      throw error;
+    }
+  }
+}
+
 // 任务处理器工厂
 export class TaskHandlerFactory {
   private handlers: Map<string, TaskHandler>;
@@ -102,6 +204,7 @@ export class TaskHandlerFactory {
     this.handlers.set('extract', new ExtractTaskHandler(db));
     this.handlers.set('translate', new TranslateTaskHandler(db));
     this.handlers.set('summary', new SummaryTaskHandler());
+    this.handlers.set('tag', new TagTaskHandler(db));
   }
   
   getHandler(type: string): TaskHandler | undefined {
