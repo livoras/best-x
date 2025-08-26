@@ -881,6 +881,19 @@ export default function Home({ params: paramsPromise }: PageProps) {
               
               {/* 内容区域 */}
               <div className="flex-1 p-6 overflow-y-auto">
+                {/* Tags 始终显示在内容顶部 */}
+                {articleContent && tagsContent && tagsContent.tags && tagsContent.tags.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex flex-wrap gap-2">
+                      {tagsContent.tags.map((tag: string) => (
+                        <span key={tag} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 {loadingArticle ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
