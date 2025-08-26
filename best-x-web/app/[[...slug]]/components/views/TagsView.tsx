@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { getTagLabel } from '@/lib/tagMapping';
+import { getTagColorClasses } from '@/lib/tagColors';
 
 interface TagsViewProps {
   articleContent: {
@@ -87,14 +88,18 @@ export default function TagsView({
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">识别的标签</h3>
             <div className="flex flex-wrap gap-2">
-              {tagsContent.tags && tagsContent.tags.map((tag: string) => (
-                <span 
-                  key={tag}
-                  className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200"
-                >
-                  {getTagLabel(tag)}
-                </span>
-              ))}
+              {tagsContent.tags && tagsContent.tags.map((tag: string) => {
+                const colors = getTagColorClasses(tag);
+                return (
+                  <span 
+                    key={tag}
+                    className={`px-3 py-1 text-sm rounded-full border transition-colors cursor-default ${colors.bg} ${colors.text} ${colors.border} ${colors.hoverBg}`}
+                    title={tag}
+                  >
+                    {getTagLabel(tag)}
+                  </span>
+                );
+              })}
             </div>
           </div>
           
@@ -103,16 +108,22 @@ export default function TagsView({
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-3">分类理由</h3>
               <div className="space-y-2">
-                {Object.entries(tagsContent.reasons).map(([tag, reason]) => (
-                  <div key={tag} className="flex items-start gap-3">
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded font-mono" title={tag}>
-                      {getTagLabel(tag)}
-                    </span>
-                    <span className="text-sm text-gray-600 flex-1">
-                      {reason as string}
-                    </span>
-                  </div>
-                ))}
+                {Object.entries(tagsContent.reasons).map(([tag, reason]) => {
+                  const colors = getTagColorClasses(tag);
+                  return (
+                    <div key={tag} className="flex items-start gap-3">
+                      <span 
+                        className={`px-2 py-0.5 text-xs rounded font-medium ${colors.bg} ${colors.text} ${colors.border} border`} 
+                        title={tag}
+                      >
+                        {getTagLabel(tag)}
+                      </span>
+                      <span className="text-sm text-gray-600 flex-1">
+                        {reason as string}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

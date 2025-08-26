@@ -9,6 +9,7 @@ import ResizablePane from '@/components/ResizablePane';
 import { DEFAULT_SCROLLS, MAX_SCROLLS } from '@/lib/consts';
 import ReactMarkdown from 'react-markdown';
 import { getTagLabel } from '@/lib/tagMapping';
+import { getTagColorClasses } from '@/lib/tagColors';
 
 // 导入视图组件
 import ArticleView from './components/views/ArticleView';
@@ -884,11 +885,18 @@ export default function Home({ params: paramsPromise }: PageProps) {
                 {articleContent && tagsContent && tagsContent.tags && tagsContent.tags.length > 0 && (
                   <div className="mb-6">
                     <div className="flex flex-wrap gap-2">
-                      {tagsContent.tags.map((tag: string) => (
-                        <span key={tag} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
-                          {getTagLabel(tag)}
-                        </span>
-                      ))}
+                      {tagsContent.tags.map((tag: string) => {
+                        const colors = getTagColorClasses(tag);
+                        return (
+                          <span 
+                            key={tag} 
+                            className={`px-3 py-1 text-sm rounded-full border transition-colors ${colors.bg} ${colors.text} ${colors.border} ${colors.hoverBg}`}
+                            title={tag}
+                          >
+                            {getTagLabel(tag)}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
