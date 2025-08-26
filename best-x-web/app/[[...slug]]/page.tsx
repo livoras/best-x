@@ -525,58 +525,24 @@ export default function Home({ params: paramsPromise }: PageProps) {
 
   return (
     <main className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header - 横贯屏幕 */}
-      <div className="w-full px-6 py-3 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-            </svg>
-            <h1 className="text-base font-bold text-gray-900">Best-X</h1>
-            <span className="text-gray-400">·</span>
-            <p className="text-xs text-gray-600">第一手高质量信息</p>
-          </div>
-          <nav className="flex gap-4 items-center">
-            <Link 
-              href="/" 
-              className="text-sm font-medium text-blue-600 flex items-center border-b-2 border-blue-600 cursor-pointer"
-            >
-              主页
-            </Link>
-            <Link 
-              href="/dashboard" 
-              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1.5 border-b-2 border-transparent cursor-pointer"
-            >
-              控制台
-              {queueStatus.summary.processing > 0 && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                  </svg>
-                  {queueStatus.summary.processing}
-                </span>
-              )}
-            </Link>
-            <div className="w-px h-4 bg-gray-300 mx-2"></div>
-            <button
-              onClick={() => setShowQuickExtract(true)}
-              className="flex items-center gap-1 px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              快速提取
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {/* Main Layout with Sidebar */}
-      <div className="flex h-[calc(100vh-52px)]">
+      {/* Main Layout */}
+      <div className="flex h-screen">
         {/* Sidebar - History */}
-        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
-          <div className="divide-y divide-gray-100">
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+          {/* Brand Area - 保持原高度52px */}
+          <div className="px-6 py-3 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-purple-50">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              <h1 className="text-base font-bold text-gray-900">Best-X</h1>
+              <span className="text-gray-400">·</span>
+              <p className="text-xs text-gray-600">第一手高质量信息</p>
+            </div>
+          </div>
+          
+          {/* History List */}
+          <div className="divide-y divide-gray-100 overflow-y-auto flex-1">
             {history.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
                 暂无历史记录
@@ -598,9 +564,50 @@ export default function Home({ params: paramsPromise }: PageProps) {
         {/* 使用可调节宽度的面板 - 文章视图在左，推文列表在右 */}
         <ResizablePane
           rightPane={
-            <>
-              {/* Empty State */}
-              {tweets.length === 0 && !loadingHistory ? (
+            <div className="h-full flex flex-col">
+              {/* 右面板顶部导航栏 */}
+              <div className="px-6 py-3 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-purple-50">
+                <div className="flex items-center justify-end">
+                  <nav className="flex gap-4 items-center">
+                    <Link 
+                      href="/" 
+                      className="text-sm font-medium text-blue-600 flex items-center border-b-2 border-blue-600 cursor-pointer"
+                    >
+                      主页
+                    </Link>
+                    <Link 
+                      href="/dashboard" 
+                      className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1.5 border-b-2 border-transparent cursor-pointer"
+                    >
+                      控制台
+                      {queueStatus.summary.processing > 0 && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                          </svg>
+                          {queueStatus.summary.processing}
+                        </span>
+                      )}
+                    </Link>
+                    <div className="w-px h-4 bg-gray-300 mx-2"></div>
+                    <button
+                      onClick={() => setShowQuickExtract(true)}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors cursor-pointer"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      快速提取
+                    </button>
+                  </nav>
+                </div>
+              </div>
+
+              {/* 推文列表区域 */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Empty State */}
+                {tweets.length === 0 && !loadingHistory ? (
                 <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                   <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -795,13 +802,14 @@ export default function Home({ params: paramsPromise }: PageProps) {
                   </div>
                 </div>
               ))}
-            </>
+              </div>
+            </div>
           }
           leftPane={
             <div className="h-full flex flex-col">
               {/* Tab 切换按钮 */}
               {articleContent && (
-                <div className="flex border-b border-gray-200 bg-white px-6 pt-4">
+                <div className="flex border-b border-gray-200 bg-white px-6">
                   {hasTranslation && (
                     <button
                       onClick={() => {
