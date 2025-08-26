@@ -124,23 +124,30 @@ export class TagTaskHandler implements TaskHandler {
     // 3. 准备标签分析 prompt
     const prompt = `分析以下内容并打上合适的标签。
 
-可用标签列表：
+可用标签列表（你只能从这些标签中选择）：
 ${formatTagsForPrompt()}
 
-要求：
-1. 只能从上述预定义标签中选择，不要创造新标签
-2. 每个类别最多选择 2 个最相关的标签
-3. 总共选择 3-8 个标签
-4. 返回 JSON 格式，包含标签 key 和选择理由
+严格要求：
+1. 【重要】只能从上述列表中选择标签，绝对不能创造新标签
+2. 【重要】返回的每个标签必须完全匹配列表中的 key（英文），不能有任何修改
+3. 每个类别最多选择 2 个最相关的标签（内容领域可以选择1-3个）
+4. 总共选择 4-10 个标签
+5. 返回 JSON 格式，tags 数组只包含上述列表中存在的标签 key
+
+检查规则：
+- 如果你想使用 "nostalgic"、"funny"、"sad" 等情感词，请改用列表中的 stance 类别标签
+- 如果找不到完全匹配的概念，选择最接近的标签
+- 不要返回任何不在上述列表中的标签
 
 返回格式示例：
 {
-  "tags": ["tech_share", "ai_ml", "advanced", "with_code"],
+  "tags": ["thread", "tech", "informative", "objective", "with_media"],
   "reasons": {
-    "tech_share": "内容是关于技术实现的分享",
-    "ai_ml": "讨论了AI模型相关内容",
-    "advanced": "涉及较深入的技术细节",
-    "with_code": "包含代码示例"
+    "thread": "内容是连续的推文讨论",
+    "tech": "讨论科技相关话题",
+    "informative": "提供了有价值的信息",
+    "objective": "观点客观中立",
+    "with_media": "包含图片或视频"
   }
 }
 

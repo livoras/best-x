@@ -8,6 +8,7 @@ import type { Tweet } from '@/types/tweet';
 import ResizablePane from '@/components/ResizablePane';
 import { DEFAULT_SCROLLS, MAX_SCROLLS } from '@/lib/consts';
 import ReactMarkdown from 'react-markdown';
+import { getTagLabel } from '@/lib/tagMapping';
 
 // 导入视图组件
 import ArticleView from './components/views/ArticleView';
@@ -887,7 +888,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     <div className="flex flex-wrap gap-2">
                       {tagsContent.tags.map((tag: string) => (
                         <span key={tag} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
-                          {tag}
+                          {getTagLabel(tag)}
                         </span>
                       ))}
                     </div>
