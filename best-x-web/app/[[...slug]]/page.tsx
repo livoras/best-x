@@ -517,43 +517,51 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     selectedHistoryId === item.id ? 'bg-blue-50 border-l-blue-500' : 'border-transparent'
                   }`}
                 >
-                  <div className="flex gap-3">
-                    {/* Avatar */}
-                    <div className="flex-shrink-0">
-                      {item.author_avatar ? (
-                        <Image
-                          src={item.author_avatar}
-                          alt={item.author_name}
-                          width={40}
-                          height={40}
-                          className="rounded-full"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                          <span className="text-gray-500 text-sm font-medium">
-                            {item.author_name.charAt(0).toUpperCase()}
-                          </span>
+                  {/* 环绕式布局 */}
+                  <div>
+                    {/* 第一行：头像 + 用户信息 */}
+                    <div className="flex gap-3 mb-2">
+                      {/* Avatar */}
+                      <div className="flex-shrink-0">
+                        {item.author_avatar ? (
+                          <Image
+                            src={item.author_avatar}
+                            alt={item.author_name}
+                            width={40}
+                            height={40}
+                            className="rounded-full"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                            <span className="text-gray-500 text-sm font-medium">
+                              {item.author_name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 用户信息 */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-gray-900 truncate">{item.author_name}</span>
+                          <span className="text-gray-500 text-sm truncate">{item.author_handle}</span>
                         </div>
-                      )}
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900 truncate">{item.author_name}</span>
-                        <span className="text-gray-500 text-sm truncate">{item.author_handle}</span>
-                      </div>
-                      <div className="text-sm text-gray-600 line-clamp-2 mb-2">
-                        {stripHtml(item.main_tweet_text)}
-                      </div>
-                      <div className="flex items-center justify-between">
+                        {/* 推文数量和时间 - 移到头像右侧 */}
                         <div className="flex items-center gap-3 text-xs text-gray-400">
                           <span>{item.tweet_count} 条推文</span>
                           <span>{new Date(item.extract_time).toLocaleDateString()}</span>
                         </div>
-                        {/* 按钮组 */}
-                        <div className="flex items-center gap-1">
+                      </div>
+                    </div>
+                    
+                    {/* 第二部分：推文内容 - 全宽度 */}
+                    <div className="text-sm text-gray-600 line-clamp-2 mb-2 pl-0">
+                      {stripHtml(item.main_tweet_text)}
+                    </div>
+                    
+                    {/* 第三部分：操作按钮 - 全宽度 */}
+                    <div className="flex items-center gap-2 pl-0">
                           {/* 翻译按钮 */}
                           <button
                             onClick={async (e) => {
@@ -576,7 +584,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                                 console.error('请求失败:', error);
                               }
                             }}
-                            className="px-2 py-0.5 text-xs bg-purple-50 hover:bg-purple-100 text-purple-600 rounded transition-colors"
+                            className="px-2 py-1 text-xs bg-purple-50 hover:bg-purple-100 text-purple-600 rounded transition-colors cursor-pointer"
                             title="翻译为中文"
                           >
                             🌐 翻译
@@ -603,13 +611,11 @@ export default function Home({ params: paramsPromise }: PageProps) {
                                 console.error('请求失败:', error);
                               }
                             }}
-                            className="px-2 py-0.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded transition-colors"
+                            className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded transition-colors cursor-pointer"
                             title="AI 标签分类"
                           >
                             🏷️ 标签
                           </button>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
