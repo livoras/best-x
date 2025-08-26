@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ExtractionsModel } from '../lib/models/ExtractionsModel';
 import QueueModel from '../lib/models/QueueModel';
+import { DB } from '../lib/DB';
 
 export function createExtractionRoutes(
   extractionsModel: ExtractionsModel,
@@ -103,6 +104,58 @@ export function createExtractionRoutes(
     } catch (error: any) {
       console.error('Error:', error);
       res.status(500).json({ error: error.message || '创建翻译任务失败' });
+    }
+  });
+
+  // 获取翻译内容
+  router.get('/:id/translation', async (req: Request, res: Response) => {
+    try {
+      const extractionId = parseInt(req.params.id);
+      
+      if (isNaN(extractionId)) {
+        return res.status(400).json({ error: '无效的提取记录ID' });
+      }
+      
+      const db = DB.getInstance();
+      
+      // 查找对应的翻译任务
+      const translationTask = db.getDB().prepare(`
+        SELECT task_id, status, progress_message, completed_at
+        FROM task_queue
+        WHERE type = 'translate' 
+          AND params LIKE ? 
+          AND status = 'completed'
+        ORDER BY completed_at DESC
+        LIMIT 1
+      `).get(`%"extractionId":${extractionId}%`) as any;
+      
+      if (!translationTask) {
+        return res.status(404).json({ error: '未找到翻译内容' });
+      }
+      
+      // 解析翻译结果
+      let translationContent = null;
+      if (translationTask.progress_message) {
+        try {
+          const result = JSON.parse(translationTask.progress_message);
+          translationContent = result.translatedMarkdown || null;
+        } catch (e) {
+          console.error('解析翻译结果失败:', e);
+        }
+      }
+      
+      if (!translationContent) {
+        return res.status(404).json({ error: '翻译内容为空' });
+      }
+      
+      res.json({
+        taskId: translationTask.task_id,
+        translationContent,
+        completedAt: translationTask.completed_at
+      });
+    } catch (error: any) {
+      console.error('Error:', error);
+      res.status(500).json({ error: error.message || '获取翻译内容失败' });
     }
   });
 

@@ -102,10 +102,16 @@ export default function Home({ params: paramsPromise }: PageProps) {
   const [copied, setCopied] = useState(false);
   
   // Tab 切换和 Markdown 内容状态
-  const [activeTab, setActiveTab] = useState<'article' | 'markdown' | 'rendered'>('article');
+  const [activeTab, setActiveTab] = useState<'article' | 'markdown' | 'rendered' | 'translation'>('article');
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [loadingMarkdown, setLoadingMarkdown] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
+  
+  // 翻译内容状态
+  const [translationContent, setTranslationContent] = useState<string | null>(null);
+  const [loadingTranslation, setLoadingTranslation] = useState(false);
+  const [translationCopied, setTranslationCopied] = useState(false);
+  const [hasTranslation, setHasTranslation] = useState(false);
   
   // 快速提取模态框状态
   const [showQuickExtract, setShowQuickExtract] = useState(false);
@@ -174,9 +180,14 @@ export default function Home({ params: paramsPromise }: PageProps) {
         setArticleContent(null);
       }
       
-      // 重置 Markdown 相关状态
+      // 重置 Markdown 和翻译相关状态
       setMarkdownContent(null);
+      setTranslationContent(null);
+      setHasTranslation(false);
       setActiveTab('article');
+      
+      // 检查是否有翻译
+      checkTranslationAvailable(id);
     } catch (err: any) {
       setError(err.message || '加载历史记录失败');
       setArticleContent(null);
@@ -255,6 +266,34 @@ export default function Home({ params: paramsPromise }: PageProps) {
       setLoadingMarkdown(false);
     }
   };
+  
+  // 检查是否有翻译可用
+  const checkTranslationAvailable = async (extractionId: number) => {
+    try {
+      const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/translation`);
+      setHasTranslation(res.ok);
+    } catch (err) {
+      setHasTranslation(false);
+    }
+  };
+  
+  // 获取翻译内容
+  const fetchTranslationContent = async () => {
+    if (!selectedHistoryId || translationContent) return;
+    
+    setLoadingTranslation(true);
+    try {
+      const res = await fetch(`http://localhost:3001/api/extractions/${selectedHistoryId}/translation`);
+      if (res.ok) {
+        const data = await res.json();
+        setTranslationContent(data.translationContent);
+      }
+    } catch (err) {
+      console.error('Failed to fetch translation:', err);
+    } finally {
+      setLoadingTranslation(false);
+    }
+  };
 
   // 复制 Markdown 内容
   const copyMarkdown = () => {
@@ -262,6 +301,15 @@ export default function Home({ params: paramsPromise }: PageProps) {
       navigator.clipboard.writeText(markdownContent);
       setMarkdownCopied(true);
       setTimeout(() => setMarkdownCopied(false), 2000);
+    }
+  };
+  
+  // 复制翻译内容
+  const copyTranslation = () => {
+    if (translationContent) {
+      navigator.clipboard.writeText(translationContent);
+      setTranslationCopied(true);
+      setTimeout(() => setTranslationCopied(false), 2000);
     }
   };
 
@@ -689,6 +737,21 @@ export default function Home({ params: paramsPromise }: PageProps) {
                   >
                     渲染视图
                   </button>
+                  {hasTranslation && (
+                    <button
+                      onClick={() => {
+                        setActiveTab('translation');
+                        fetchTranslationContent();
+                      }}
+                      className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                        activeTab === 'translation'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      翻译
+                    </button>
+                  )}
                 </div>
               )}
               
@@ -702,7 +765,10 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     </div>
                   </div>
                 ) : articleContent ? (
-                  activeTab === 'article' ? (
+                  (() => {
+                    switch (activeTab) {
+                      case 'article':
+                        return (
                     <article className="bg-white rounded-xl border border-gray-100 p-6">
                   {/* Author Header */}
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
@@ -865,7 +931,9 @@ export default function Home({ params: paramsPromise }: PageProps) {
                     </button>
                   </div>
                 </article>
-                  ) : activeTab === 'markdown' ? (
+                        );
+                      case 'markdown':
+                        return (
                     // Markdown 视图
                     <div className="bg-white rounded-xl border border-gray-100 p-6">
                       {/* Header with copy button - 与文章视图保持一致 */}
@@ -931,7 +999,9 @@ export default function Home({ params: paramsPromise }: PageProps) {
                         </div>
                       )}
                     </div>
-                  ) : (
+                        );
+                      case 'rendered':
+                        return (
                     // 渲染视图
                     <div className="bg-white rounded-xl border border-gray-100 p-6">
                       {/* Header - 与其他视图保持一致 */}
@@ -1139,7 +1209,230 @@ export default function Home({ params: paramsPromise }: PageProps) {
                         </div>
                       )}
                     </div>
-                  )
+                        );
+                      case 'translation':
+                        return (
+                    // 翻译视图
+                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                      {/* Header - 与其他视图保持一致 */}
+                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                        <img
+                          src={articleContent.author.avatar}
+                          alt={articleContent.author.name}
+                          className="w-12 h-12 rounded-full"
+                        />
+                        <div>
+                          <div className="font-semibold text-gray-900">{articleContent.author.name}</div>
+                          <div className="text-sm text-gray-500">{articleContent.author.handle}</div>
+                        </div>
+                        <div className="ml-auto text-right mr-4">
+                          <div className="text-sm text-gray-500">
+                            翻译内容
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            目标语言：中文
+                          </div>
+                        </div>
+                        <button
+                          onClick={copyTranslation}
+                          className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                            translationCopied 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {translationCopied ? (
+                            <>
+                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              已复制
+                            </>
+                          ) : (
+                            <>
+                              <svg className="mr-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              复制全部
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Translation Content */}
+                      {loadingTranslation ? (
+                        <div className="flex items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        </div>
+                      ) : translationContent ? (
+                        <div className="markdown-content">
+                          <ReactMarkdown
+                            components={{
+                              // 复用渲染视图的组件样式
+                              p: ({children}) => {
+                                const processChildren = (child: any): any => {
+                                  if (typeof child === 'string') {
+                                    const lines = child.split('\n');
+                                    return lines.map((line, i) => (
+                                      <React.Fragment key={i}>
+                                        {line}
+                                        {i < lines.length - 1 && <br />}
+                                      </React.Fragment>
+                                    ));
+                                  }
+                                  if (Array.isArray(child)) {
+                                    return child.map((c, i) => (
+                                      <React.Fragment key={i}>{processChildren(c)}</React.Fragment>
+                                    ));
+                                  }
+                                  return child;
+                                };
+                                
+                                return (
+                                  <p className="text-gray-800 leading-relaxed mb-6 text-base whitespace-pre-line">
+                                    {processChildren(children)}
+                                  </p>
+                                );
+                              },
+                              img: ({src, alt}) => {
+                                const isVideo = alt === 'Video';
+                                const isEmoji = src?.includes('emoji');
+                                
+                                if (isEmoji) {
+                                  return <img src={src} alt={alt} className="inline-block w-5 h-5 mx-1" />;
+                                }
+                                
+                                if (isVideo) {
+                                  return (
+                                    <div className="relative my-6 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                                      <img 
+                                        src={src} 
+                                        alt={alt}
+                                        className="w-full object-cover"
+                                        style={{ maxHeight: '500px' }}
+                                      />
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="bg-black/60 backdrop-blur-sm rounded-full p-4 hover:bg-black/70 transition-colors">
+                                          <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                          </svg>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                
+                                return (
+                                  <img 
+                                    src={src} 
+                                    alt={alt}
+                                    className="rounded-xl my-6 w-full object-cover shadow-lg border border-gray-100"
+                                    style={{ maxHeight: '600px' }}
+                                  />
+                                );
+                              },
+                              a: ({href, children}) => (
+                                <a 
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-200 hover:decoration-blue-400 transition-colors"
+                                >
+                                  {children}
+                                </a>
+                              ),
+                              hr: () => (
+                                <div className="my-8 flex items-center">
+                                  <div className="flex-1 border-t border-gray-200"></div>
+                                  <div className="px-4">
+                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                      <circle cx="12" cy="12" r="2"/>
+                                      <circle cx="6" cy="12" r="2"/>
+                                      <circle cx="18" cy="12" r="2"/>
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 border-t border-gray-200"></div>
+                                </div>
+                              ),
+                              strong: ({children}) => (
+                                <strong className="font-semibold text-gray-900">{children}</strong>
+                              ),
+                              em: ({children}) => {
+                                const text = String(children);
+                                if (text.includes('[视频内容]')) {
+                                  return (
+                                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-2 mb-4">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      </svg>
+                                      <span>视频内容</span>
+                                    </div>
+                                  );
+                                }
+                                if (text.includes('.app') || text.includes('.com') || text.includes('.org')) {
+                                  return <span className="text-sm text-gray-500">{children}</span>;
+                                }
+                                return <em className="italic text-gray-700">{children}</em>;
+                              },
+                              ul: ({children}) => (
+                                <ul className="my-6 ml-6 list-disc space-y-3 text-gray-700">
+                                  {children}
+                                </ul>
+                              ),
+                              ol: ({children}) => (
+                                <ol className="my-6 ml-6 list-decimal space-y-3 text-gray-700">
+                                  {children}
+                                </ol>
+                              ),
+                              li: ({children}) => (
+                                <li className="leading-relaxed pl-2">
+                                  <span className="block">{children}</span>
+                                </li>
+                              ),
+                              code: ({children}) => (
+                                <code className="px-2 py-1 bg-gray-100 text-pink-600 rounded text-sm font-mono">
+                                  {children}
+                                </code>
+                              ),
+                              blockquote: ({children}) => (
+                                <blockquote className="border-l-4 border-blue-400 pl-4 my-6 text-gray-700 italic">
+                                  {children}
+                                </blockquote>
+                              ),
+                              h1: ({children}) => (
+                                <h1 className="text-3xl font-bold text-gray-900 mb-6 mt-8">{children}</h1>
+                              ),
+                              h2: ({children}) => (
+                                <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-6">{children}</h2>
+                              ),
+                              h3: ({children}) => (
+                                <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-4">{children}</h3>
+                              ),
+                              h4: ({children}) => (
+                                <h4 className="text-lg font-semibold text-gray-800 mb-2 mt-3">{children}</h4>
+                              ),
+                              h5: ({children}) => (
+                                <h5 className="text-base font-medium text-gray-800 mb-2 mt-2">{children}</h5>
+                              ),
+                              h6: ({children}) => (
+                                <h6 className="text-sm font-medium text-gray-700 mb-1 mt-2">{children}</h6>
+                              ),
+                            }}
+                          >
+                            {translationContent}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          加载翻译内容中...
+                        </div>
+                      )}
+                    </div>
+                        );
+                      default:
+                        return null;
+                    }
+                  })()
                 ) : (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
                   <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
