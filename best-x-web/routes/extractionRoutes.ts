@@ -150,7 +150,7 @@ export function createExtractionRoutes(
       
       res.json({
         taskId: translationTask.task_id,
-        translationContent,
+        translationContent,  // 保持原始 API 字段名
         completedAt: translationTask.completed_at
       });
     } catch (error: any) {
