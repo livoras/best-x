@@ -242,6 +242,39 @@ export class ExtractionsModel {
       } | null;
       time: string;
     }>;
+    mainThread: Array<{
+      text: string;
+      media: {
+        items: MediaItem[];
+      };
+      card?: {
+        url: string;
+        title: string;
+        description?: string;
+        image?: string;
+        domain?: string;
+      } | null;
+      time: string;
+    }>;
+    replies: Array<{
+      text: string;
+      media: {
+        items: MediaItem[];
+      };
+      card?: {
+        url: string;
+        title: string;
+        description?: string;
+        image?: string;
+        domain?: string;
+      } | null;
+      time: string;
+      author: {
+        name: string;
+        handle: string;
+        avatar: string;
+      };
+    }>;
     tweetCount: number;
     url: string;
   } | null {
@@ -255,6 +288,25 @@ export class ExtractionsModel {
     const firstTweet = tweets[0];
     const firstAuthor = firstTweet.author;
 
+    // 如果新数据结构已经存在，直接使用
+    if (tweetResult.mainThread && tweetResult.replies) {
+      const mainThreadFormatted = tweetResult.mainThread.map(tweet => this.formatTweetForArticle(tweet));
+      const repliesFormatted = tweetResult.replies.map(tweet => ({
+        ...this.formatTweetForArticle(tweet),
+        author: tweet.author
+      }));
+
+      return {
+        author: firstAuthor,
+        tweets: mainThreadFormatted, // 保留以兼容旧代码
+        mainThread: mainThreadFormatted,
+        replies: repliesFormatted,
+        tweetCount: tweetResult.mainThread.length,
+        url: tweetResult.url
+      };
+    }
+
+    // 向后兼容：如果是旧数据，使用原逻辑
     // 找出从开头开始连续的同一作者的推文
     let continuousTweets = [firstTweet];
     let lastContinuousIndex = 0;
@@ -272,13 +324,13 @@ export class ExtractionsModel {
     }
 
     // 保留每条推文的独立结构
-    const mergedTweets = continuousTweets.map(tweet => ({
-      text: tweet.content.text,
-      media: {
-        items: tweet.media.items || []  // 保留原始顺序的媒体项
-      },
-      card: tweet.card || null,
-      time: tweet.time
+    const mergedTweets = continuousTweets.map(tweet => this.formatTweetForArticle(tweet));
+    
+    // 获取剩余的推文作为回复
+    const remainingTweets = tweets.slice(lastContinuousIndex + 1);
+    const replies = remainingTweets.map(tweet => ({
+      ...this.formatTweetForArticle(tweet),
+      author: tweet.author
     }));
 
     return {
@@ -287,9 +339,36 @@ export class ExtractionsModel {
         handle: firstAuthor.handle,
         avatar: firstAuthor.avatar
       },
-      tweets: mergedTweets,
+      tweets: mergedTweets, // 保留以兼容旧代码
+      mainThread: mergedTweets,
+      replies: replies,
       tweetCount: continuousTweets.length,
       url: tweetResult.url
+    };
+  }
+
+  // 格式化单个推文为文章内容
+  private formatTweetForArticle(tweet: any): {
+    text: string;
+    media: {
+      items: MediaItem[];
+    };
+    card?: {
+      url: string;
+      title: string;
+      description?: string;
+      image?: string;
+      domain?: string;
+    } | null;
+    time: string;
+  } {
+    return {
+      text: tweet.content.text,
+      media: {
+        items: tweet.media.items || []
+      },
+      card: tweet.card || null,
+      time: tweet.time
     };
   }
 

@@ -402,6 +402,42 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       };
     }).get();
     
+    // 分类推文：主线程 vs 回复
+    const mainThread: Tweet[] = [];
+    const replies: Tweet[] = [];
+    
+    if (tweets.length > 0) {
+      // 第一条推文的作者是主线程作者
+      const mainAuthorHandle = tweets[0].author.handle;
+      
+      console.log(`\n🔍 分类推文（主作者: ${mainAuthorHandle}）:`);
+      
+      tweets.forEach((tweet, index) => {
+        const isMainAuthor = tweet.author.handle === mainAuthorHandle;
+        
+        if (isMainAuthor) {
+          // 判断是否是连续的主线程推文
+          // 规则：如果是主作者的推文，且是前几条或者紧跟在另一条主线程推文之后
+          if (index === 0 || mainThread.length === index) {
+            mainThread.push(tweet);
+            console.log(`  ✅ 主线程 #${mainThread.length}: ${tweet.author.handle} - ${tweet.content.text.substring(0, 50)}...`);
+          } else {
+            // 主作者的非连续推文视为回复
+            replies.push(tweet);
+            console.log(`  💬 回复（主作者）: ${tweet.author.handle} - ${tweet.content.text.substring(0, 50)}...`);
+          }
+        } else {
+          // 其他用户的推文都是回复
+          replies.push(tweet);
+          console.log(`  💬 回复: ${tweet.author.handle} - ${tweet.content.text.substring(0, 50)}...`);
+        }
+      });
+      
+      console.log(`\n📊 分类结果:`);
+      console.log(`  - 主线程: ${mainThread.length} 条`);
+      console.log(`  - 回复: ${replies.length} 条`);
+    }
+    
     // 保存article HTML到文件
     let articlesFile = '';
     if (allArticlesHtml.length > 0) {
@@ -417,7 +453,9 @@ async function getXPost(url?: string, options?: { scrollTimes?: number }): Promi
       url: tweetUrl,
       htmlFile: htmlFile.filePath,
       articlesFile,
-      tweets,
+      tweets,  // 保留以兼容旧代码
+      mainThread,
+      replies,
       count: tweets.length
     };
     

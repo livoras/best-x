@@ -41,12 +41,23 @@ export interface Tweet {
 }
 
 /**
+ * 媒体项目类型
+ */
+export interface MediaItem {
+  type: 'image' | 'video';
+  url: string;
+  thumbnail?: string;
+}
+
+/**
  * 获取推文函数的返回结果
  */
 export interface TweetResult {
   url: string;              // 原始推文URL
   htmlFile: string;         // 保存的HTML文件路径
   articlesFile: string;     // 提取的article标签HTML文件路径
-  tweets: Tweet[];          // 提取的推文数据数组
+  tweets: Tweet[];          // 提取的推文数据数组（保留以兼容旧数据）
+  mainThread?: Tweet[];     // 主线程推文（原作者的连续推文）
+  replies?: Tweet[];        // 回复推文（其他用户的评论）
   count: number;            // 推文数量
 }

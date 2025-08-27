@@ -8,7 +8,27 @@ interface ArticleContent {
     handle: string;
     avatar: string;
   };
-  tweets: Array<{
+  tweets?: Array<{
+    text: string;
+    time?: string;
+    media: {
+      images: string[];
+      videos: Array<{ thumbnail: string }>;
+      items?: Array<{
+        type: 'image' | 'video';
+        url: string;
+        thumbnail?: string;
+      }>;
+    };
+    card?: {
+      url: string;
+      domain: string;
+      title: string;
+      description?: string;
+      image?: string;
+    };
+  }>;
+  mainThread?: Array<{
     text: string;
     time?: string;
     media: {
@@ -45,6 +65,9 @@ export default function ArticleView({
   setCopied,
   formatTweetTime
 }: ArticleViewProps) {
+  // 使用 mainThread 如果存在，否则使用 tweets（向后兼容）
+  const tweets = articleContent.mainThread || articleContent.tweets || [];
+  
   return (
     <article className="bg-white rounded-xl border border-gray-100 p-6">
       {/* Author Header */}
@@ -63,14 +86,14 @@ export default function ArticleView({
             {articleContent.tweetCount} 条连续推文
           </div>
           <div className="text-xs text-gray-400">
-            {formatTweetTime(articleContent.tweets[0]?.time)}
+            {formatTweetTime(tweets[0]?.time)}
           </div>
         </div>
       </div>
 
       {/* Tweet Content with Media */}
       <div className="space-y-6">
-        {articleContent.tweets.map((tweet, index) => (
+        {tweets.map((tweet, index) => (
           <div key={index} className={index > 0 ? "pt-4 border-t border-gray-100" : ""}>
             {/* Tweet Text */}
             <div 

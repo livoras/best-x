@@ -17,6 +17,7 @@ import TranslationView from './components/views/TranslationView';
 import MarkdownView from './components/views/MarkdownView';
 import RenderedView from './components/views/RenderedView';
 import TagsView from './components/views/TagsView';
+import RepliesView from './components/views/RepliesView';
 import HistoryItem from './components/sidebar/HistoryItem';
 
 interface ExtractionRecord {
@@ -79,13 +80,44 @@ interface ArticleContent {
     handle: string;
     avatar: string;
   };
-  tweets: Array<{
+  tweets?: Array<{
     text: string;
     media: {
       images: string[];
       videos: Array<{ thumbnail: string }>;
     };
     time: string;
+  }>;
+  mainThread?: Array<{
+    text: string;
+    media: {
+      images: string[];
+      videos: Array<{ thumbnail: string }>;
+    };
+    time: string;
+  }>;
+  replies?: Array<{
+    text: string;
+    media: {
+      items?: Array<{
+        type: 'image' | 'video';
+        url: string;
+        thumbnail?: string;
+      }>;
+    };
+    card?: {
+      url: string;
+      domain: string;
+      title: string;
+      description?: string;
+      image?: string;
+    } | null;
+    time?: string;
+    author: {
+      name: string;
+      handle: string;
+      avatar: string;
+    };
   }>;
   tweetCount: number;
   url: string;
@@ -604,10 +636,16 @@ export default function Home({ params: paramsPromise }: PageProps) {
                 </div>
               </div>
 
-              {/* 推文列表区域 */}
+              {/* 推文列表或回复区域 */}
               <div className="flex-1 overflow-y-auto">
-                {/* Empty State */}
-                {tweets.length === 0 && !loadingHistory ? (
+                {/* 如果有文章内容，显示回复；否则显示推文列表 */}
+                {articleContent && articleContent.replies ? (
+                  <RepliesView 
+                    replies={articleContent.replies}
+                    formatTweetTime={formatTweetTime}
+                    formatNumber={formatNumber}
+                  />
+                ) : tweets.length === 0 && !loadingHistory ? (
                 <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                   <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
