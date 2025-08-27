@@ -20,6 +20,14 @@ import TagsView from './components/views/TagsView';
 import RepliesView from './components/views/RepliesView';
 import HistoryItem from './components/sidebar/HistoryItem';
 
+// 骨架屏组件
+import SmartLoadingContainer from './components/SmartLoadingContainer';
+import ArticleViewSkeleton from './components/skeletons/ArticleViewSkeleton';
+import TranslationViewSkeleton from './components/skeletons/TranslationViewSkeleton';
+import TagsViewSkeleton from './components/skeletons/TagsViewSkeleton';
+import RepliesViewSkeleton from './components/skeletons/RepliesViewSkeleton';
+import GenericViewSkeleton from './components/skeletons/GenericViewSkeleton';
+
 interface ExtractionRecord {
   id: number;
   url: string;
@@ -638,14 +646,21 @@ export default function Home({ params: paramsPromise }: PageProps) {
 
               {/* 推文列表或回复区域 */}
               <div className="flex-1 overflow-y-auto">
-                {/* 如果有文章内容，显示回复；否则显示推文列表 */}
-                {articleContent && articleContent.replies ? (
-                  <RepliesView 
-                    replies={articleContent.replies}
-                    formatTweetTime={formatTweetTime}
-                    formatNumber={formatNumber}
-                  />
-                ) : tweets.length === 0 && !loadingHistory ? (
+                {/* 使用 SmartLoadingContainer 包裹右侧内容 */}
+                <SmartLoadingContainer
+                  loading={loadingHistory}
+                  skeleton={<RepliesViewSkeleton />}
+                  minHeight="400px"
+                  className=""
+                >
+                  {/* 如果有文章内容，显示回复；否则显示推文列表 */}
+                  {articleContent && articleContent.replies ? (
+                    <RepliesView 
+                      replies={articleContent.replies}
+                      formatTweetTime={formatTweetTime}
+                      formatNumber={formatNumber}
+                    />
+                  ) : tweets.length === 0 && !loadingHistory ? (
                 <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                   <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -840,6 +855,7 @@ export default function Home({ params: paramsPromise }: PageProps) {
                   </div>
                 </div>
               ))}
+                </SmartLoadingContainer>
               </div>
             </div>
           }
@@ -939,37 +955,43 @@ export default function Home({ params: paramsPromise }: PageProps) {
                   </div>
                 )}
                 
-                {loadingArticle ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                      <p className="text-gray-500">加载文章内容...</p>
-                    </div>
-                  </div>
-                ) : articleContent ? (
-                  renderContentView()
-                ) : (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                    <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h15m0 0l-3-3m3 3l-3 3m-13-3a6 6 0 1112 0 6 6 0 01-12 0z" />
-                    </svg>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      文章视图
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      选择左侧历史记录，查看连续推文的合并内容
-                    </p>
-                    <Link 
-                      href="/dashboard" 
-                      className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
-                    >
-                      前往控制台
-                      <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                {/* 使用 SmartLoadingContainer 包裹内容，根据activeTab选择对应的骨架屏 */}
+                <SmartLoadingContainer
+                  loading={loadingArticle}
+                  skeleton={
+                    activeTab === 'translation' ? <TranslationViewSkeleton /> :
+                    activeTab === 'tags' ? <TagsViewSkeleton /> :
+                    activeTab === 'markdown' || activeTab === 'rendered' ? <GenericViewSkeleton title="Markdown加载中" /> :
+                    <ArticleViewSkeleton />
+                  }
+                  minHeight="400px"
+                  className=""
+                >
+                  {articleContent ? (
+                    renderContentView()
+                  ) : (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h15m0 0l-3-3m3 3l-3 3m-13-3a6 6 0 1112 0 6 6 0 01-12 0z" />
                       </svg>
-                    </Link>
-                  </div>
-                )}
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        文章视图
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-4">
+                        选择左侧历史记录，查看连续推文的合并内容
+                      </p>
+                      <Link 
+                        href="/dashboard" 
+                        className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        前往控制台
+                        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    </div>
+                  )}
+                </SmartLoadingContainer>
               </div>
             </div>
           }
