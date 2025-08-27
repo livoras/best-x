@@ -87,13 +87,13 @@ export default function TagsView({
           {/* 标签列表 */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">识别的标签</h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-nowrap gap-2 overflow-x-auto">
               {tagsContent.tags && tagsContent.tags.map((tag: string) => {
                 const colors = getTagColorClasses(tag);
                 return (
                   <span 
                     key={tag}
-                    className={`px-3 py-1 text-sm rounded-full border transition-colors cursor-default ${colors.bg} ${colors.text} ${colors.border} ${colors.hoverBg}`}
+                    className={`px-3 py-1 text-sm rounded-full border transition-colors cursor-default flex-shrink-0 ${colors.bg} ${colors.text} ${colors.border} ${colors.hoverBg}`}
                     title={tag}
                   >
                     {getTagLabel(tag)}

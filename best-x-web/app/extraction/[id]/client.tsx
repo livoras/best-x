@@ -757,13 +757,13 @@ export default function ExtractionClient({ id, initialData, error: initialError 
             {/* Tags 始终显示在内容顶部 */}
             {articleContent && tagsContent && tagsContent.tags && tagsContent.tags.length > 0 && (
               <div className="mb-6">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-nowrap gap-2 overflow-x-auto">
                   {tagsContent.tags.map((tag: string) => {
                     const colors = getTagColorClasses(tag);
                     return (
                       <span 
                         key={tag} 
-                        className={`px-3 py-1 text-sm rounded-full border transition-colors ${colors.bg} ${colors.text} ${colors.border} ${colors.hoverBg}`}
+                        className={`px-3 py-1 text-sm rounded-full border transition-colors flex-shrink-0 ${colors.bg} ${colors.text} ${colors.border} ${colors.hoverBg}`}
                         title={tag}
                       >
                         {getTagLabel(tag)}

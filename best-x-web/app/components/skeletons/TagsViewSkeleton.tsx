@@ -22,13 +22,13 @@ export default function TagsViewSkeleton() {
         {/* Tags Section */}
         <div>
           <div className="h-4 bg-gray-200 rounded w-24 mb-3"/>
-          <div className="flex flex-wrap gap-2">
-            <div className="h-8 bg-gray-200 rounded-full w-20"/>
-            <div className="h-8 bg-gray-200 rounded-full w-24"/>
-            <div className="h-8 bg-gray-200 rounded-full w-16"/>
-            <div className="h-8 bg-gray-200 rounded-full w-28"/>
-            <div className="h-8 bg-gray-200 rounded-full w-20"/>
-            <div className="h-8 bg-gray-200 rounded-full w-24"/>
+          <div className="flex flex-nowrap gap-2 overflow-x-auto">
+            <div className="h-8 bg-gray-200 rounded-full w-20 flex-shrink-0"/>
+            <div className="h-8 bg-gray-200 rounded-full w-24 flex-shrink-0"/>
+            <div className="h-8 bg-gray-200 rounded-full w-16 flex-shrink-0"/>
+            <div className="h-8 bg-gray-200 rounded-full w-28 flex-shrink-0"/>
+            <div className="h-8 bg-gray-200 rounded-full w-20 flex-shrink-0"/>
+            <div className="h-8 bg-gray-200 rounded-full w-24 flex-shrink-0"/>
           </div>
         </div>
 
