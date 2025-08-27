@@ -1,5 +1,6 @@
 import { ScraperBase, cheerio, ScrapeOptions } from '../lib/scraper-base';
 import type { FollowingUser, FollowingsResult } from '../types/following';
+import * as fs from 'fs';
 
 /**
  * 关注列表爬虫（使用通用基类实现）
@@ -19,28 +20,23 @@ class FollowingScraper extends ScraperBase<FollowingUser, FollowingsResult> {
     const $ = cheerio.load(html);
     const users: FollowingUser[] = [];
     
-    // 直接查找所有关注按钮
-    const followButtons = $('[data-testid$="-follow"], [data-testid$="-unfollow"]');
+    // 查找所有 cellInnerDiv（这是包含用户信息的容器）
+    const cellInnerDivs = $('[data-testid="cellInnerDiv"]');
     
-    followButtons.each((index, element) => {
-      const button = $(element);
-      const followTestId = button.attr('data-testid') || '';
+    // 调试：记录找到的容器数量
+    console.log(`    🔍 DEBUG: 找到 ${cellInnerDivs.length} 个 cellInnerDiv`);
+    
+    cellInnerDivs.each((index, element) => {
+      const container = $(element);
       
-      if (!followTestId) return;
+      // 从 UserCell 容器中查找关注按钮
+      const followButton = container.find('[data-testid$="-follow"], [data-testid$="-unfollow"]').first();
       
+      if (!followButton.length) return;
+      
+      const followTestId = followButton.attr('data-testid') || '';
       const isFollowing = followTestId.endsWith('-unfollow');
       const userId = followTestId.replace(/-(un)?follow$/, '');
-      
-      // 向上查找包含用户信息的容器
-      let container = button.parent();
-      let maxLevels = 10;
-      
-      while (maxLevels > 0 && container.length > 0) {
-        const links = container.find('a[href^="/"][role="link"]');
-        if (links.length > 0) break;
-        container = container.parent();
-        maxLevels--;
-      }
       
       // 提取用户名和链接
       const profileLinks = container.find('a[href^="/"][role="link"]');
@@ -95,18 +91,18 @@ class FollowingScraper extends ScraperBase<FollowingUser, FollowingsResult> {
       }
       
       // 提取个人简介
+      // 基于结构分析：Bio是容器中第二个 div[dir="auto"] 元素
       let bio = '';
-      const bioSpans = container.find('span').filter((_, el) => {
-        const text = $(el).text().trim();
-        const parent = $(el).parent();
-        return text.length > 20 && 
-               !text.startsWith('@') && 
-               !parent.is('a') &&
-               text !== displayName;
-      });
       
-      if (bioSpans.length > 0) {
-        bio = bioSpans.first().text().trim();
+      const allDivs = container.find('div[dir="auto"]');
+      console.log(`        🔍 DEBUG [${username}]: 找到 ${allDivs.length} 个 div[dir="auto"]`);
+      
+      // 如果有至少2个 dir="auto" 元素，第二个是bio
+      if (allDivs.length >= 2) {
+        bio = $(allDivs[1]).text().trim();
+        console.log(`        ✅ DEBUG [${username}]: Bio 提取成功: "${bio.substring(0, 80)}..."`);
+      } else {
+        console.log(`        ❌ DEBUG [${username}]: 容器中少于2个 div[dir="auto"]，无法提取bio`);
       }
       
       // 提取头像URL
@@ -117,9 +113,15 @@ class FollowingScraper extends ScraperBase<FollowingUser, FollowingsResult> {
       const avatarUrl = avatarImg.attr('src') || '';
       
       // 提取认证状态
-      const verifiedBadge = container.find('svg[aria-label*="Verified"], svg[aria-label*="verified"]');
+      const verifiedBadge = container.find('svg[data-testid="icon-verified"], svg[aria-label*="认证"]');
       const isVerified = verifiedBadge.length > 0;
-      const isOrganization = verifiedBadge.attr('aria-label')?.toLowerCase().includes('organization') || false;
+      // 检查是否为组织认证（金色徽章通常有linearGradient）
+      // 注意：需要获取SVG的HTML内容来检查是否包含linearGradient
+      let isOrganization = false;
+      if (isVerified) {
+        const svgHtml = verifiedBadge.html() || '';
+        isOrganization = svgHtml.includes('linearGradient');
+      }
       
       users.push({
         userId,
@@ -135,6 +137,8 @@ class FollowingScraper extends ScraperBase<FollowingUser, FollowingsResult> {
         followButtonTestId: followTestId
       });
     });
+    
+    console.log(`    🔍 DEBUG: 成功提取 ${users.length} 个用户`);
     
     return users;
   }
@@ -186,7 +190,8 @@ class FollowingScraper extends ScraperBase<FollowingUser, FollowingsResult> {
   }
   
   protected onDuplicateItem(user: FollowingUser, id: string): void {
-    // 静默处理重复项
+    // 调试：记录重复项
+    console.log(`    ⏭️  DEBUG: 重复用户 ${id}`);
   }
 }
 
@@ -208,8 +213,21 @@ if (process.argv[2]) {
   const scrollTimes = parseInt(process.argv[3]) || 10;
   const maxUsers = process.argv[4] ? parseInt(process.argv[4]) : undefined;
   
+  // 创建日志文件
+  const logFile = `/tmp/followings-${username}-${Date.now()}.log`;
+  const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+  
+  // 重定向 console.log 到文件
+  const originalLog = console.log;
+  console.log = (...args: any[]) => {
+    const message = args.join(' ');
+    originalLog(message);  // 同时输出到控制台
+    logStream.write(message + '\n');  // 写入文件
+  };
+  
   console.log(`\n🚀 获取关注列表: @${username}`);
-  console.log(`   配置: 滚动${scrollTimes}次${maxUsers ? `，最多${maxUsers}个用户` : ''}\n`);
+  console.log(`   配置: 滚动${scrollTimes}次${maxUsers ? `，最多${maxUsers}个用户` : ''}`);
+  console.log(`   日志文件: ${logFile}\n`);
   
   getFollowings(username, { scrollTimes, maxUsers })
     .then(result => {
@@ -233,10 +251,17 @@ if (process.argv[2]) {
         console.log(`  ... 还有 ${result.oneWayFollowings.length - 5} 个`);
       }
       
+      // 保存结果到JSON文件
+      const resultFile = `/tmp/followings-${username}-${Date.now()}.json`;
+      fs.writeFileSync(resultFile, JSON.stringify(result, null, 2));
+      console.log(`\n📁 结果已保存到: ${resultFile}`);
+      
+      logStream.end();
       process.exit(0);
     })
     .catch(error => {
       console.error('错误:', error.message);
+      logStream.end();
       process.exit(1);
     });
 }
