@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useContext } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useContext } from 'react';
 import Link from 'next/link';
+import useSWR from 'swr';
 import type { Tweet } from '@/types/tweet';
 import ResizablePane from '@/components/ResizablePane';
 import { getTagLabel } from '@/lib/tagMapping';
@@ -83,6 +84,19 @@ interface ExtractionClientProps {
   error: string | null;
 }
 
+// SWR fetcher
+const fetcher = (url: string) => {
+  return fetch(url)
+    .then(res => {
+      if (!res.ok) return null;
+      return res.json();
+    })
+    .catch(err => {
+      console.error('Fetch error:', err);
+      throw err;
+    });
+};
+
 export default function ExtractionClient({ id, initialData, error: initialError }: ExtractionClientProps) {
   const { queueStatus } = useQueue();
   const [tweets, setTweets] = useState<Tweet[]>(initialData?.tweets || []);
@@ -92,20 +106,100 @@ export default function ExtractionClient({ id, initialData, error: initialError 
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [copied, setCopied] = useState(false);
   
+  // 跟踪已处理的任务
+  const processedTasksRef = useRef<Set<string>>(new Set());
+  
+  // 清理已处理的任务 ID（保留最近 50 个）
+  useEffect(() => {
+    if (processedTasksRef.current.size > 50) {
+      const entries = Array.from(processedTasksRef.current);
+      processedTasksRef.current = new Set(entries.slice(-30));
+    }
+  }, [queueStatus]);
+  
   // Tab 切换和内容状态
-  const [activeTab, setActiveTab] = useState<'translation' | 'article' | 'markdown' | 'rendered' | 'tags' | null>(null); // 初始为null，等待检查
+  const [activeTab, setActiveTab] = useState<'translation' | 'article' | 'markdown' | 'rendered' | 'tags'>('translation'); // 默认为翻译
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [loadingMarkdown, setLoadingMarkdown] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
   
-  const [translationContent, setTranslationContent] = useState<string | null>(null);
-  const [loadingTranslation, setLoadingTranslation] = useState(false);
-  const [translationCopied, setTranslationCopied] = useState(false);
-  const [hasTranslation, setHasTranslation] = useState(false);
+  // 使用 SWR 获取翻译内容
+  const { data: translationData, mutate: mutateTranslation, isLoading: loadingTranslation, error: translationError } = useSWR(
+    `http://localhost:3001/api/extractions/${id}/translation`,
+    fetcher,
+    {
+      refreshInterval: (data) => {
+        if (!data && queueStatus?.allTasks) {
+          let foundCompletedTask = false;
+          const hasRelevantTask = queueStatus.allTasks.some(task => {
+            if (task.type === 'translate' && task.params) {
+              try {
+                const params = JSON.parse(task.params);
+                const matches = params.extractionId === parseInt(id);
+                if (matches && task.status === 'completed') {
+                  foundCompletedTask = true;
+                  if (!processedTasksRef.current.has(task.task_id)) {
+                    processedTasksRef.current.add(task.task_id);
+                    setTimeout(() => mutateTranslation(), 500);
+                  }
+                }
+                return matches;
+              } catch (e) {
+                return false;
+              }
+            }
+            return false;
+          });
+          return hasRelevantTask && !foundCompletedTask ? 2000 : 0;
+        }
+        return 0;
+      },
+      revalidateOnFocus: false
+    }
+  );
   
-  const [tagsContent, setTagsContent] = useState<any>(null);
-  const [loadingTags, setLoadingTags] = useState(false);
-  const [hasTags, setHasTags] = useState(false);
+  // 使用 SWR 获取标签内容
+  const { data: tagsData, mutate: mutateTags, isLoading: loadingTags, error: tagsError } = useSWR(
+    `http://localhost:3001/api/extractions/${id}/tags`,
+    fetcher,
+    {
+      refreshInterval: (data) => {
+        if (!data && queueStatus?.allTasks) {
+          let foundCompletedTask = false;
+          const hasRelevantTask = queueStatus.allTasks.some(task => {
+            if (task.type === 'tag' && task.params) {
+              try {
+                const params = JSON.parse(task.params);
+                const matches = params.extractionId === parseInt(id);
+                if (matches && task.status === 'completed') {
+                  foundCompletedTask = true;
+                  if (!processedTasksRef.current.has(task.task_id)) {
+                    processedTasksRef.current.add(task.task_id);
+                    setTimeout(() => mutateTags(), 500);
+                  }
+                }
+                return matches;
+              } catch (e) {
+                return false;
+              }
+            }
+            return false;
+          });
+          return hasRelevantTask && !foundCompletedTask ? 2000 : 0;
+        }
+        return 0;
+      },
+      revalidateOnFocus: false
+    }
+  );
+  
+  // 从 SWR 数据中提取内容
+  const translationContent = translationData?.translationContent || null;
+  const hasTranslation = !!translationContent;
+  const tagsContent = tagsData || null;
+  const hasTags = !!tagsContent;
+  
+  const [translationCopied, setTranslationCopied] = useState(false);
   
   // 格式化时间
   const formatTweetTime = (timeStr: string | undefined) => {
@@ -154,48 +248,6 @@ export default function ExtractionClient({ id, initialData, error: initialError 
     return num;
   };
   
-  // 检查翻译是否可用
-  const checkTranslationAvailable = async (extractionId: string) => {
-    try {
-      const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/translation`);
-      if (res.ok) {
-        setHasTranslation(true);
-        const data = await res.json();
-        setTranslationContent(data.translationContent);
-        // 只在activeTab还未设置时自动切换到翻译
-        if (activeTab === null) {
-          setActiveTab('translation');
-        }
-      } else {
-        setHasTranslation(false);
-        // 没有翻译时设置为文章视图
-        if (activeTab === null) {
-          setActiveTab('article');
-        }
-      }
-    } catch (err) {
-      setHasTranslation(false);
-      if (activeTab === null) {
-        setActiveTab('article');
-      }
-    }
-  };
-  
-  // 检查标签是否可用
-  const checkTagsAvailable = async (extractionId: string) => {
-    try {
-      const res = await fetch(`http://localhost:3001/api/extractions/${extractionId}/tags`);
-      if (res.ok) {
-        setHasTags(true);
-        const data = await res.json();
-        setTagsContent(data);
-      } else {
-        setHasTags(false);
-      }
-    } catch (err) {
-      setHasTags(false);
-    }
-  };
   
   // 获取 Markdown 内容
   const fetchMarkdownContent = async () => {
@@ -215,23 +267,6 @@ export default function ExtractionClient({ id, initialData, error: initialError 
     }
   };
   
-  // 获取翻译内容
-  const fetchTranslationContent = async () => {
-    if (translationContent) return;
-    
-    setLoadingTranslation(true);
-    try {
-      const res = await fetch(`http://localhost:3001/api/extractions/${id}/translation`);
-      if (res.ok) {
-        const data = await res.json();
-        setTranslationContent(data.translationContent);
-      }
-    } catch (err) {
-      console.error('Failed to fetch translation:', err);
-    } finally {
-      setLoadingTranslation(false);
-    }
-  };
   
   // 复制 Markdown
   const copyMarkdown = () => {
@@ -265,6 +300,8 @@ export default function ExtractionClient({ id, initialData, error: initialError 
       if (res.ok) {
         // 显示成功提示
         alert('翻译任务已加入队列');
+        // 立即开始轮询检查新数据
+        mutateTranslation();
       } else {
         alert('创建翻译任务失败');
       }
@@ -290,6 +327,8 @@ export default function ExtractionClient({ id, initialData, error: initialError 
       if (res.ok) {
         // 显示成功提示
         alert('标签提取任务已加入队列');
+        // 立即开始轮询检查新数据
+        mutateTags();
       } else {
         alert('创建标签任务失败');
       }
@@ -301,21 +340,10 @@ export default function ExtractionClient({ id, initialData, error: initialError 
     }
   };
   
-  // 初始化检查 - 同时检查翻译和标签
-  useEffect(() => {
-    const initializeContent = async () => {
-      // 并行检查翻译和标签
-      await Promise.all([
-        checkTranslationAvailable(id),
-        checkTagsAvailable(id)
-      ]);
-    };
-    initializeContent();
-  }, [id]);
   
   // 渲染内容视图
   const renderContentView = () => {
-    if (!articleContent || activeTab === null) return null;
+    if (!articleContent) return null;
     
     switch (activeTab) {
       case 'article':
@@ -361,6 +389,9 @@ export default function ExtractionClient({ id, initialData, error: initialError 
                   </>
                 )}
               </button>
+              {translationError && (
+                <div className="text-red-500 text-sm mt-2">获取翻译失败</div>
+              )}
             </div>
           );
         }
@@ -430,6 +461,9 @@ export default function ExtractionClient({ id, initialData, error: initialError 
                   </>
                 )}
               </button>
+              {tagsError && (
+                <div className="text-red-500 text-sm mt-2">获取标签失败</div>
+              )}
             </div>
           );
         }
@@ -439,7 +473,7 @@ export default function ExtractionClient({ id, initialData, error: initialError 
             tagsContent={tagsContent}
             loadingTags={loadingTags}
             selectedHistoryId={parseInt(id)}
-            checkTagsAvailable={() => checkTagsAvailable(id)}
+            checkTagsAvailable={() => mutateTags()}
           />
         );
       
@@ -655,12 +689,11 @@ export default function ExtractionClient({ id, initialData, error: initialError 
       leftPane={
         <div className="h-full flex flex-col">
           {/* Tab 切换按钮 */}
-          {articleContent && activeTab !== null && (
+          {articleContent && (
             <div className="flex border-b border-gray-200 bg-white px-6">
               <button
                 onClick={() => {
                   setActiveTab('translation');
-                  fetchTranslationContent();
                 }}
                 className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors cursor-pointer ${
                   activeTab === 'translation'
