@@ -385,8 +385,18 @@ export class ExtractionsModel {
     text = text.replace(/<a[^>]*>(@[^<]+)<\/a>/g, '$1');
     text = text.replace(/<a[^>]*>(#[^<]+)<\/a>/g, '$1');
     
-    // 处理其他链接
-    text = text.replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]+)<\/a>/g, '[$2]($1)');
+    // 处理其他链接 - 改进版本，支持嵌套 HTML
+    // 使用更复杂的处理来提取嵌套内容
+    text = text.replace(/<a[^>]*href="([^"]*)"[^>]*>((?:[^<]|<(?!\/a>))*)<\/a>/g, (match, href, content) => {
+      // 移除内容中的所有 HTML 标签，只保留文本
+      const cleanContent = content.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      // 如果是 @提及或 #标签，保持原样
+      if (cleanContent.startsWith('@') || cleanContent.startsWith('#')) {
+        return cleanContent;
+      }
+      // 其他情况转换为 Markdown 链接
+      return `[${cleanContent}](${href})`;
+    });
     
     // 移除所有其他 HTML 标签但保留内容
     text = text.replace(/<[^>]+>/g, '');
