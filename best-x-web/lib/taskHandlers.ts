@@ -1,4 +1,4 @@
-import { getXPost } from '../../get-post';
+import { getXPost } from '../../crawls/get-post';
 import { translatePost } from '../../translate-post';
 import { ExtractionsModel } from './models/ExtractionsModel';
 import { DB } from './DB';
