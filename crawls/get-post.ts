@@ -1,7 +1,7 @@
 import { PlaywrightClient } from 'better-playwright-mcp';
 import * as cheerio from 'cheerio';
 import * as fs from 'fs';
-import type { Tweet, TweetResult, MediaItem } from './types/tweet';
+import type { Tweet, TweetResult, MediaItem } from '../types/tweet';
 
 async function getXPost(url?: string, options?: { scrollTimes?: number }): Promise<TweetResult> {
   try {
