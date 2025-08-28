@@ -118,5 +118,50 @@ export const migrations: MigrationScript[] = [
       // SQLite 不支持 DROP COLUMN，需要重建表
       // 注意：这里简化了回滚，实际生产环境需要更复杂的处理
     ]
+  },
+  {
+    name: '009_create_twitter_users_table',
+    up: `
+      CREATE TABLE IF NOT EXISTS twitter_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        
+        -- 用户唯一标识
+        user_id TEXT UNIQUE NOT NULL,
+        username TEXT UNIQUE NOT NULL,
+        
+        -- 用户基础信息
+        handle TEXT NOT NULL,
+        display_name TEXT,
+        
+        -- 个人资料
+        bio TEXT,
+        avatar_url TEXT,
+        profile_url TEXT,
+        
+        -- 认证状态
+        is_verified BOOLEAN DEFAULT 0,
+        is_organization BOOLEAN DEFAULT 0,
+        
+        -- 时间戳
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    down: 'DROP TABLE IF EXISTS twitter_users'
+  },
+  {
+    name: '010_create_twitter_users_indexes',
+    up: [
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_user_id ON twitter_users(user_id)',
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_username ON twitter_users(username)',
+      'CREATE INDEX IF NOT EXISTS idx_verified ON twitter_users(is_verified)',
+      'CREATE INDEX IF NOT EXISTS idx_organization ON twitter_users(is_organization)'
+    ],
+    down: [
+      'DROP INDEX IF EXISTS idx_user_id',
+      'DROP INDEX IF EXISTS idx_username',
+      'DROP INDEX IF EXISTS idx_verified',
+      'DROP INDEX IF EXISTS idx_organization'
+    ]
   }
 ];
