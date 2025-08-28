@@ -1,6 +1,6 @@
 import { MigrationScript } from './Migration';
 
-export const migrations: MigrationScript[] = [
+const migrations: MigrationScript[] = [
   {
     name: '001_create_extractions_table',
     up: `
@@ -163,5 +163,45 @@ export const migrations: MigrationScript[] = [
       'DROP INDEX IF EXISTS idx_verified',
       'DROP INDEX IF EXISTS idx_organization'
     ]
+  },
+  {
+    name: '011_add_tags_to_twitter_users',
+    up: `
+      ALTER TABLE twitter_users 
+      ADD COLUMN tags TEXT DEFAULT NULL
+    `,
+    down: `
+      -- SQLite 不支持 DROP COLUMN，需要重建表
+      -- 这里简化了回滚
+    `
+  },
+  {
+    name: '012_create_twitter_users_tags_index',
+    up: 'CREATE INDEX IF NOT EXISTS idx_tags ON twitter_users(tags)',
+    down: 'DROP INDEX IF EXISTS idx_tags'
+  },
+  {
+    name: '013_add_unfollowed_to_twitter_users',
+    up: `
+      ALTER TABLE twitter_users 
+      ADD COLUMN unfollowed BOOLEAN DEFAULT 0
+    `,
+    down: `
+      -- SQLite 不支持 DROP COLUMN，需要重建表
+      -- 这里简化了回滚
+    `
+  },
+  {
+    name: '014_add_unfollowed_at_to_twitter_users',
+    up: `
+      ALTER TABLE twitter_users 
+      ADD COLUMN unfollowed_at DATETIME DEFAULT NULL
+    `,
+    down: `
+      -- SQLite 不支持 DROP COLUMN，需要重建表
+      -- 这里简化了回滚
+    `
   }
 ];
+
+export { migrations };
