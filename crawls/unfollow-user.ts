@@ -2,6 +2,7 @@ import { PlaywrightClient } from 'better-playwright-mcp';
 import DB from '../best-x-web/lib/DB';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import * as fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,7 +29,7 @@ export async function unfollowUser(
       'unfollow',
       `Unfollow ${username}`,
       url,
-      1500  // 等待页面加载
+      3000  // 等待页面加载
     );
     
     // 2. 跳过额外等待
@@ -50,31 +51,54 @@ export async function unfollowUser(
         await client.waitForSelector(pageId, unfollowButtonSelector, { state: 'visible', timeout: 1500 });
         console.log(`✅ 找到取消关注按钮 (使用 data-testid)`);
       } catch {
-        // 没找到取消关注按钮，可能用户未被关注
-        console.log(`ℹ️ 未找到取消关注按钮，用户可能未被关注`);
+        // 没找到取消关注按钮，需要进一步验证
+        console.log(`⚠️ 未找到取消关注按钮，检查是否已经未关注...`);
         
-        // 更新数据库标记为未关注
+        // 检查是否存在follow按钮（不是unfollow）
         try {
-          const dbPath = path.join(__dirname, '../best-x-web/data/tweets.db');
-          // @ts-ignore
-          const DBClass = DB.DB || DB.default || DB;
-          const db = DBClass.getInstance(dbPath);
+          const followButtonSelector = '[data-testid$="-follow"]';
+          await client.waitForSelector(pageId, followButtonSelector, { state: 'visible', timeout: 3000 });
+          const buttonHtml = await client.getElementHTML(pageId, followButtonSelector);
+          console.log(`🔍 找到按钮，检查类型...`);
           
-          db.execute(
-            `UPDATE twitter_users 
-             SET unfollowed = 1, 
-                 unfollowed_at = datetime('now') 
-             WHERE handle = ?`,
-            [`@${username}`]
-          );
-          
-          console.log(`💾 已在数据库中标记用户 @${username} 为未关注状态`);
-        } catch (dbError) {
-          console.error(`⚠️ 更新数据库失败:`, dbError);
+          if (!buttonHtml.includes('-unfollow"')) {
+            // 确实是follow按钮，用户已经未关注
+            console.log(`✅ 找到关注按钮，用户已处于未关注状态`);
+            
+            // 更新数据库
+            try {
+              const dbPath = path.join(__dirname, '../best-x-web/data/tweets.db');
+              // @ts-ignore
+              const DBClass = DB.DB || DB.default || DB;
+              const db = DBClass.getInstance(dbPath);
+              
+              db.execute(
+                `UPDATE twitter_users 
+                 SET unfollowed = 1, 
+                     unfollowed_at = datetime('now') 
+                 WHERE handle = ?`,
+                [`@${username}`]
+              );
+              
+              console.log(`💾 已在数据库中标记用户 @${username} 为未关注状态`);
+            } catch (dbError) {
+              console.error(`⚠️ 更新数据库失败:`, dbError);
+            }
+            
+            await client.closePage(pageId);
+            return true;
+          } else {
+            // 找到的是unfollow按钮，但之前没检测到，可能是加载问题
+            console.log(`❌ 检测到unfollow按钮，用户仍在关注中`);
+            await client.closePage(pageId);
+            return false;
+          }
+        } catch {
+          // 完全找不到任何按钮
+          console.log(`❌ 无法确定关注状态，不更新数据库`);
+          await client.closePage(pageId);
+          return false;
         }
-        
-        await client.closePage(pageId);
-        return true;
       }
     }
     
@@ -85,46 +109,85 @@ export async function unfollowUser(
       
       // 4. 点击取消关注按钮
       console.log(`👆 点击取消关注按钮...`);
-      await client.browserClick(pageId, unfollowButtonSelector, 200);
+      await client.browserClick(pageId, unfollowButtonSelector, 1000);
       
       // 5. 处理确认对话框（如果有）
       console.log(`⏳ 检查确认对话框...`);
-      // 不等待，直接查找确认框
       
-      // 查找确认按钮 - 先尝试包含"取消关注"的span
-      let confirmButtonSelector = 'span:has-text("取消关注")';
+      // 查找确认按钮 - 优先使用标准确认按钮
+      const confirmSelectors = [
+        '[data-testid="confirmationSheetConfirm"]',
+        'span:has-text("取消关注")'
+      ];
       
-      try {
-        await client.waitForSelector(pageId, confirmButtonSelector, { state: 'visible', timeout: 300 });
-        console.log(`📋 发现确认对话框，点击取消关注...`);
-        await client.browserClick(pageId, confirmButtonSelector, 200);
-        console.log(`✅ 已点击确认按钮`);
-      } catch (error) {
-        // 尝试标准的确认按钮
-        confirmButtonSelector = '[data-testid="confirmationSheetConfirm"]';
+      let confirmFound = false;
+      for (const selector of confirmSelectors) {
         try {
-          await client.waitForSelector(pageId, confirmButtonSelector, { state: 'visible', timeout: 300 });
-          console.log(`📋 发现标准确认对话框，点击确认...`);
-          await client.browserClick(pageId, confirmButtonSelector, 200);
+          await client.waitForSelector(pageId, selector, { state: 'visible', timeout: 1000 });
+          console.log(`📋 发现确认对话框，点击确认...`);
+          await client.browserClick(pageId, selector, 1000);
           console.log(`✅ 已点击确认按钮`);
+          confirmFound = true;
+          break;
         } catch {
-          // 可能没有确认对话框，这是正常的
-          console.log(`ℹ️ 没有确认对话框，直接取消关注`);
+          // 继续尝试下一个选择器
         }
+      }
+      
+      if (!confirmFound) {
+        console.log(`ℹ️ 没有确认对话框，直接取消关注`);
       }
       
       // 6. 验证是否成功
       console.log(`⏳ 验证取消关注结果...`);
-      await client.waitForTimeout(pageId, 300);
+      await client.waitForTimeout(pageId, 3000);
       
-      // 检查按钮是否变为 "关注" 状态
-      try {
-        // 查找关注按钮（不是取消关注按钮）
-        const followButtonSelector = '[data-testid$="-follow"]:not([data-testid$="-unfollow"])';
-        await client.waitForSelector(pageId, followButtonSelector, { state: 'visible', timeout: 1000 });
+      // 检查按钮状态 - 使用和debug-unfollow.ts相同的方法
+      let isUnfollowed = false;
+      
+      // 保存页面HTML并检查
+      const htmlFile = await client.pageToHtmlFile(pageId, false);
+      const htmlContent = fs.readFileSync(htmlFile.filePath, 'utf-8');
+      
+      // 检查按钮状态 - 与debug脚本相同的正则匹配
+      const unfollowMatch = htmlContent.match(/data-testid="\d+-unfollow"/);
+      const followMatch = htmlContent.match(/data-testid="\d+-follow"(?!-)/);
+      
+      if (!unfollowMatch && followMatch) {
+        // 没有unfollow按钮，但有follow按钮 = 成功
+        isUnfollowed = true;
+        console.log(`✅ 检测到follow按钮，已取消关注`);
+      } else if (unfollowMatch) {
+        // 仍有unfollow按钮 = 失败
+        isUnfollowed = false;
+        console.log(`❌ 仍存在 unfollow 按钮，取消关注失败`);
+      } else {
+        // 没有找到任何按钮，再检查一次
+        console.log(`⚠️ 未找到任何按钮，再等待检查...`);
+        await client.waitForTimeout(pageId, 2000);
+        
+        try {
+          const anyButtonSelector = '[data-testid$="-follow"]';
+          const buttonHtml = await client.getElementHTML(pageId, anyButtonSelector);
+          
+          if (buttonHtml.includes('-unfollow"')) {
+            isUnfollowed = false;
+            console.log(`❌ 最终检查：仍在关注状态`);
+          } else {
+            isUnfollowed = true;
+            console.log(`✅ 最终检查：已取消关注`);
+          }
+        } catch {
+          // 真的找不到按钮
+          isUnfollowed = false;
+          console.log(`⚠️ 未找到任何关注按钮`);
+        }
+      }
+      
+      if (isUnfollowed) {
         console.log(`✅ 成功取消关注 @${username}！`);
         
-        // 更新数据库标记
+        // 只有确认成功才更新数据库
         try {
           const dbPath = path.join(__dirname, '../best-x-web/data/tweets.db');
           // @ts-ignore
@@ -142,13 +205,13 @@ export async function unfollowUser(
           console.log(`💾 已在数据库中标记用户 @${username} 为已取消关注`);
         } catch (dbError) {
           console.error(`⚠️ 更新数据库失败:`, dbError);
-          // 不影响取消关注的返回结果
         }
         
         await client.closePage(pageId);
         return true;
-      } catch (error) {
-        console.log(`⚠️ 未找到关注按钮，可能取消关注未成功`);
+      } else {
+        console.log(`❌ 取消关注失败！页面仍显示"正在关注"状态`);
+        console.log(`⚠️ 未更新数据库，@${username} 仍在关注列表中`);
         
         await client.closePage(pageId);
         return false;
@@ -221,7 +284,7 @@ export async function unfollowMultipleUsers(
 
 // 命令行支持
 if (process.argv[2]) {
-  const usernames = process.argv.slice(2);
+  const usernames = process.argv.slice(2).map(u => u.replace(/^@/, '')); // 移除开头的@符号
   
   if (usernames.length === 1) {
     // 单个用户
