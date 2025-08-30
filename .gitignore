@@ -3,3 +3,13 @@ dist/
 *.log
 .env
 .DS_Store
+
+# User list files
+all_users.txt
+all_users.txt.backup
+bad.txt
+bad_users.txt
+bad_users_export.txt
+bad_users_final.txt
+bad_users_handles.txt
+remaining_bad_users.txt
